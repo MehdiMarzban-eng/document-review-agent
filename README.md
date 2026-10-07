@@ -69,7 +69,7 @@ Tests exercise the actual LangGraph with scripted provider responses, synthetic 
 
 Before claiming the agent improves the original pipeline, compare both on the same questions, model, and documents. Reserve independently authored questions before tuning. Score claim support manually against sources, citation correctness, unsupported-question abstention, conflict detection, requests, latency, and provider token usage when available. Include questions answerable by one search and cases requiring further investigation. An agent may increase cost without improving easy questions.
 
-The bundled examples are development fixtures. No held-out benchmark or live provider quality results are established yet. The app records elapsed time and request count, not monetary cost or token totals.
+The bundled examples are development fixtures. Three [live Gemini development checks](docs/live-check-2026-10-07.md) verified a cited comparison, a negative answer about undeployed models, and abstention on missing hardware details. These are manually reviewed examples, not a held-out quality benchmark. The app records elapsed time and request count, not monetary cost or token totals.
 
 ## Limitations
 

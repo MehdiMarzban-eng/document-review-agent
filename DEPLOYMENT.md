@@ -7,6 +7,11 @@ Deployed and checked October 7, 2026. The public scripted review completed and t
 inspector switched between source reports. All 14 automated tests passed locally and the
 GitHub Actions Linux test workflow passed. No live Gemini or Ollama quality run established.
 
+Later October 7 update: the user added a host Gemini key in Streamlit Secrets and authorized
+live tests. Shared-key support is deployed; three Gemini development checks completed
+successfully as documented in `docs/live-check-2026-10-07.md`. Eighteen local tests passed.
+This supersedes the earlier absence of live Gemini examples, but is not a general benchmark.
+
 Deploy on Streamlit Community Cloud using Python 3.12, branch `main`, entry point `cloud_app.py`.
 No key is needed for the scripted walkthrough. Optional Streamlit Secrets for shared Gemini access:
 
