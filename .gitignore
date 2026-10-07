@@ -1,0 +1,8 @@
+.venv/
+__pycache__/
+.streamlit/secrets.toml
+.env
+.env.*
+indexes/
+results/
+*.pdf

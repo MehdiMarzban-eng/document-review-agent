@@ -1,0 +1,16 @@
+{
+  "snapshot_date": "2026-10-06",
+  "source_project": "document-evidence-assistant",
+  "files": [
+    {
+      "destination": "evidence_search.py",
+      "source": "evidence_search.py",
+      "sha256": "B257285D5C957ED64CF6159F70DB336A825D86230D00A468836983575F732DEC"
+    },
+    {
+      "destination": "evidence_answers.py",
+      "source": "answer_question.py",
+      "sha256": "DDA1091BC94EE019E0173A5043F8E4A2A574C15B86FF31D6FE3E5D9EAA391204"
+    }
+  ]
+}
