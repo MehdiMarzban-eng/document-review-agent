@@ -6,3 +6,4 @@ __pycache__/
 indexes/
 results/
 *.pdf
+.test-tmp/

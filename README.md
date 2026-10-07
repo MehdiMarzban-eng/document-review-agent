@@ -47,7 +47,7 @@ Open the local URL printed by Streamlit. Select **Offline walkthrough** and clic
 For model-driven review, choose one of:
 
 - **Local Ollama model:** install Ollama and a suitable local model yourself, then enter its installed name. The app only calls `127.0.0.1:11434`, never downloads a model, and makes no cloud requests in this mode. Hardware, electricity, and initial model downloads are your responsibility. Not every small model can reliably follow the schema or review evidence.
-- **Gemini API:** enter your key in the password field, select a model available to your account, and explicitly enable sending retrieved text. The app does not save the key to disk. The question and retrieved text go to Google; source files and absolute file paths are not submitted. Filenames and fingerprints are included in the manifest. Free-tier access and quotas are account dependent. Keep billing disabled if you require zero API charges; software cannot determine whether a supplied key belongs to a billed project. No automatic provider fallback or retry occurs.
+- **Gemini API:** the host can configure `GEMINI_API_KEY` in Streamlit Secrets; otherwise enter your own key in the password field. Explicitly enable sending retrieved text. The app does not expose the host key or save entered keys to disk. The question and retrieved text go to Google; source files and absolute file paths are not submitted. Filenames and fingerprints are included in the manifest. Free-tier access and quotas are account dependent. Keep billing disabled if you require zero API charges; software cannot determine whether a supplied key belongs to a billed project. No automatic provider fallback or retry occurs.
 
 CLI real-model example (prompts for the key; never put keys in command arguments):
 
@@ -79,7 +79,7 @@ The bundled examples are development fixtures. No held-out benchmark or live pro
 - Prompt instructions tell the model to ignore document instructions, while tool allowlisting prevents arbitrary shell/network actions. This does not prove semantic prompt-injection resistance.
 - Invalid final answers stop without displaying findings. Tool errors can be observed and corrected within the remaining budget. A request-limit stop retains the trace but returns no final answer.
 - Context is capped at 60,000 evidence characters; page reads are capped at twelve passages. Providers also have their own context limits.
-- Public preview on Streamlit Community Cloud, using `cloud_app.py` and Python 3.12. Hosted mode omits Ollama, processes uploaded files on the server, and uses visitors' own Gemini keys. No production reliability claim. See [deployment notes](DEPLOYMENT.md).
+- Public preview on Streamlit Community Cloud, using `cloud_app.py` and Python 3.12. Hosted mode omits Ollama and processes uploaded files on the server. It supports a host key or visitors' own Gemini keys. Shared-key access has process-local limits (15 requests/minute, 100/day, 30/session), including failed attempts. These reset on restart and are not a billing cap; provider quotas remain necessary. No production reliability claim. See [deployment notes](DEPLOYMENT.md).
 
 ## Reused code and provider references
 

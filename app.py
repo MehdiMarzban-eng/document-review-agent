@@ -8,6 +8,19 @@ from agent import review
 from corpus import Corpus
 from demo import DEMO_QUESTION, Walkthrough
 from providers import Gemini, Ollama
+from shared_access import RequestLimiter, LimitedProvider
+
+
+def secret_setting(name, default=""):
+    try:
+        return st.secrets.get(name, default)
+    except (FileNotFoundError, st.errors.StreamlitSecretNotFoundError):
+        return default
+
+
+@st.cache_resource
+def shared_limiter():
+    return RequestLimiter()
 
 ROOT = Path(__file__).parent
 HOSTED = os.environ.get("DOCUMENT_REVIEW_HOSTED") == "1"
@@ -49,6 +62,8 @@ uploads = []
 key = model = ""
 cloud_allowed = False
 use_samples = True
+server_key = secret_setting("GEMINI_API_KEY")
+shared_key = isinstance(server_key, str) and bool(server_key.strip())
 with st.sidebar:
     st.markdown("### Review workspace")
     st.caption("DOCUMENT LIBRARY")
@@ -75,11 +90,17 @@ with st.sidebar:
     st.divider()
     if mode == "Gemini API":
         st.caption("Retrieved text and your question go to Google. Free-tier content may be used to improve its products; billing and quotas determine cost.")
-        if HOSTED:
+        if shared_key:
+            key = server_key.strip()
+            model = secret_setting("GEMINI_MODEL", "gemini-3.5-flash-lite")
+            st.caption("Gemini is configured by the host. Shared access has request limits.")
+            st.caption("Model: " + str(model))
+        elif HOSTED:
             st.caption("Your key is sent to this app's server to call Gemini. It is not saved to disk. Use a key you are comfortable entrusting to this host.")
-        key = st.text_input("Gemini API key", type="password")
-        model = st.text_input("Gemini model", value="gemini-3.5-flash-lite")
-        cloud_allowed = st.checkbox("Send retrieved text to Gemini using this key")
+        if not shared_key:
+            key = st.text_input("Gemini API key", type="password")
+            model = st.text_input("Gemini model", value="gemini-3.5-flash-lite")
+        cloud_allowed = st.checkbox("Send retrieved text to Gemini", key="gemini_consent")
     elif mode == "Local Ollama model":
         model = st.text_input("Installed Ollama model", placeholder="Local model name")
         st.caption("Uses your local Ollama server. No models are downloaded by this app.")
@@ -127,6 +148,8 @@ with findings_column:
                 corpus = Corpus.from_paths(paths)
                 provider = Walkthrough() if mode == "Offline walkthrough" else (
                     Gemini(key, model) if mode == "Gemini API" else Ollama(model))
+                if mode == "Gemini API" and shared_key:
+                    provider = LimitedProvider(provider, shared_limiter(), st.session_state)
                 with st.spinner("Investigating the documents and preparing findings…"):
                     result = review(corpus, question, provider, budget)
                 result["mode"] = mode
