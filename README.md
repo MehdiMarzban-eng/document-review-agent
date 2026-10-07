@@ -1,5 +1,9 @@
 # Document Review Agent
 
+**Live preview:** [document-review-agent.streamlit.app](https://document-review-agent.streamlit.app/)
+
+**Source:** [MehdiMarzban-eng/document-review-agent](https://github.com/MehdiMarzban-eng/document-review-agent)
+
 A document analyst that can choose searches and page reads before returning cited findings.
 This is a separate evolution of [Document Evidence Assistant](https://document-evidence-assistant.streamlit.app/), reusing a snapshot of its PDF extraction, BM25 retrieval, and citation validation. The original project remains unchanged.
 
@@ -75,7 +79,7 @@ The bundled examples are development fixtures. No held-out benchmark or live pro
 - Prompt instructions tell the model to ignore document instructions, while tool allowlisting prevents arbitrary shell/network actions. This does not prove semantic prompt-injection resistance.
 - Invalid final answers stop without displaying findings. Tool errors can be observed and corrected within the remaining budget. A request-limit stop retains the trace but returns no final answer.
 - Context is capped at 60,000 evidence characters; page reads are capped at twelve passages. Providers also have their own context limits.
-- Local implementation only. No public deployment or production reliability claim.
+- Public preview on Streamlit Community Cloud, using `cloud_app.py` and Python 3.12. Hosted mode omits Ollama, processes uploaded files on the server, and uses visitors' own Gemini keys. No production reliability claim. See [deployment notes](DEPLOYMENT.md).
 
 ## Reused code and provider references
 

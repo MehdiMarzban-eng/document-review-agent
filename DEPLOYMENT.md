@@ -1,5 +1,12 @@
 # Hosting
 
+Live preview: https://document-review-agent.streamlit.app/
+Repository: https://github.com/MehdiMarzban-eng/document-review-agent
+
+Deployed and checked October 7, 2026. The public scripted review completed and the citation
+inspector switched between source reports. All 14 automated tests passed locally and the
+GitHub Actions Linux test workflow passed. No live Gemini or Ollama quality run established.
+
 Deploy on Streamlit Community Cloud using Python 3.12, branch `main`, entry point `cloud_app.py`.
 No secrets or owner API key are needed. Visitors can use the scripted walkthrough without a key.
 Gemini mode requires the visitor's own key and explicit consent. Cloud mode sends that key to
