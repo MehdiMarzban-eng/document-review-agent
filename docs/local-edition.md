@@ -11,11 +11,19 @@ Installation prepares the app, Ollama and Qwen2.5 7B. The same window switches a
 
 Add documents, check the files to review, enter a question and choose **Review documents**. New files are checked by default; adding files preserves existing choices. Every question uses the checked selection. Select a citation to inspect the original passage. **Save review** exports JSON with source excerpts. **Clear** removes the current selection and results from the app.
 
-## Updates
+## Unreleased workflow prototype
 
-Question planning searches every checked file, regardless of question wording. Results distinguish files with passages available to the model from files cited in the answer. A source without a citation is not necessarily irrelevant or unread. Explicit per-paper requests are marked partial if files lack citations. These counts do not establish full-document review or factual support. Repeated questions reuse extracted text in memory.
+The following paper-note workflow exists only on the development branch. It failed real-paper quality checks and is **not** included in v0.3.8 or the updater. See the [development report](paper-workflow-development-check-2026-10-10.md).
+
+The first review prepares source-linked notes for every checked paper. Later questions reuse those notes and extracted text in memory. Changing the checked selection preserves notes; **Clear** or closing the app discards them. Notes are not saved automatically. First reviews take longer, especially without a dedicated GPU.
+
+Overview and per-paper questions answer each selected paper separately, then optionally connect their ideas. Focused questions search for the requested facts. Each proposed finding is checked against original pages; unsupported findings are withheld. Results distinguish available passages from citations. These are model checks, not proof of factual accuracy or full-document reading. Inspect the source evidence.
+
+Preparation uses up to two model requests per uncached paper, plus one answer request per selected paper for overview/per-paper questions, and up to ten planning/synthesis/check requests (at most eight finding checks). A six-paper overview can use up to 28 requests initially, then 16 with cached notes. Large selections can exceed context or checking budgets; withheld or unavailable contributions remain partial results. No extra dependencies or model download are needed for this workflow.
 
 **Not fully answered** shows unresolved clauses from your original question. Model-invented questions are replaced with your original request, preserving the partial status rather than hiding uncertainty. This checks wording origin, not whether the model correctly understood or answered the question.
+
+## Updates (released edition)
 
 Choose **Check for updates** when online. If a new version is available, choose **Install** or **Cancel**. Install downloads and verifies only the app/runtime package, then restarts the app. Save your review first. Existing Ollama/model files and the previous app version stay in place. The original shortcut opens the installed update.
 

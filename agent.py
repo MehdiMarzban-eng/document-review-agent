@@ -101,13 +101,16 @@ def validate_decision(value):
     return value
 
 
-def review(corpus, question, provider, max_steps=6):
+def review(corpus, question, provider, max_steps=6, progress=None):
     if not isinstance(question, str) or not question.strip() or len(question) > 2000:
         raise ValueError("Question must contain 1–2,000 characters.")
     if type(max_steps) is not int or not 1 <= max_steps <= 10:
         raise ValueError("Request budget must be between one and ten.")
     started = time.monotonic()
     enhanced = getattr(provider, "understands_questions", False) and max_steps >= 3
+    if enhanced and getattr(provider, "prepares_paper_notes", False):
+        from paper_review import review as review_papers
+        return review_papers(corpus, question, provider, progress, max_steps=max_steps)
     plan, initial_evidence, initial_trace, initial_steps = None, {}, [], 0
     initial_observations = []
 

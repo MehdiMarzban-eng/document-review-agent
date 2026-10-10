@@ -15,6 +15,7 @@ class ReviewWindow:
         self.paths, self.citations = [], []
         self.document_vars, self.document_checks = {}, []
         self.corpus_cache = None
+        self.paper_note_cache = {}
         self.result = None
         self.busy = False
         self.updating = False
@@ -84,6 +85,7 @@ class ReviewWindow:
         self.question = ScrolledText(page, height=3, wrap="word", font=("", 11))
         self.question.pack(fill="x", pady=6)
         self.question.bind("<<Modified>>", self.question_changed)
+        ttk.Label(page, text="First review takes longer. Paper notes are reused until you clear or close the app.").pack(anchor="w")
         actions = ttk.Frame(page)
         actions.pack(fill="x", pady=6)
         self.start = ttk.Button(actions, text="Review documents", command=self.start_review, state="disabled")
@@ -176,6 +178,7 @@ class ReviewWindow:
         self.set_documents(self.paths + list(paths))
 
     def clear_review(self):
+        self.paper_note_cache.clear()
         self.set_documents([])
         self.question.delete("1.0", "end")
         self.files.set("Choose PDF, TXT or MD files. No fixed document or file-size cap.")
@@ -211,7 +214,9 @@ class ReviewWindow:
                 if not self.corpus_cache or self.corpus_cache[0] != signature:
                     self.corpus_cache = (signature, Corpus.from_paths(paths, max_documents=None,
                         max_file_bytes=None, max_pages=None, max_passages=None))
-                result = review(self.corpus_cache[1], question, Ollama(self.launcher.MODEL, port=11435))
+                self.corpus_cache[1].paper_note_cache = self.paper_note_cache
+                result = review(self.corpus_cache[1], question, Ollama(self.launcher.MODEL, port=11435),
+                                max_steps=10, progress=lambda text: self.events.put(("review_progress", text)))
                 self.events.put(("result", result))
             except Exception as error:
                 self.events.put(("error", str(error)))
@@ -234,6 +239,8 @@ class ReviewWindow:
                 kind, value = self.events.get_nowait()
                 if kind == "result":
                     self.show_result(value)
+                elif kind == "review_progress":
+                    self.status.set(value)
                 elif kind == "update_check":
                     self.offer_update(value)
                 elif kind == "update_progress":
@@ -341,6 +348,12 @@ class ReviewWindow:
                 lines.append(label)
             lines.append("")
         document_coverage = result.get("document_coverage", {})
+        preparation = result.get("paper_preparation")
+        if preparation:
+            lines += [f"Paper notes prepared: {preparation['prepared']}/{preparation['total']}."]
+            unavailable = [n['source_name'] for n in result.get('paper_notes', []) if not n['notes']]
+            if unavailable:
+                lines += ["Notes unavailable:", *unavailable]
         if document_coverage:
             lines += [f"Passages available: {document_coverage['in_context']}/{document_coverage['total']} selected documents. "
                       f"Cited: {document_coverage['cited']}/{document_coverage['total']}."]
@@ -350,6 +363,8 @@ class ReviewWindow:
             lines += ["", "Not fully answered:", *answer["unanswered_parts"]]
         if result.get("coverage_check") == "unavailable":
             lines += ["", "Final answer check was unavailable. Check the cited passages."]
+        if result.get("claim_check") == "findings_removed":
+            lines += ["", "Some findings could not be verified against their source pages and were removed."]
         self.set_text(self.findings, "\n".join(lines))
         if self.citations:
             self.sources.selection_set(0)

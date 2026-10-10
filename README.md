@@ -6,7 +6,9 @@
 
 **Current local edition:** Windows and Mac native desktop app, v0.3.8. [Download and setup details](docs/local-edition.md). The small installer prepares the app, Ollama and Qwen2.5 7B, then opens document review automatically. Use **Check for updates** in the app to install updates when you want; it does not check automatically. Existing Ollama/model files are preserved. The local edition has no fixed document-count, PDF-size, page-count or passage-count cap; available memory, processing time and model context still limit large reviews. No browser, Qt, Streamlit or UI web server. No separate Python installation or API key. Preview builds are unsigned; see setup details for privacy and verification limits.
 
-A document analyst that can choose searches and page reads before returning cited findings. For explicit “each paper” requests, it searches across the selected files and reports which files were actually cited.
+**This development branch is unreleased.** The paper-note workflow described below failed real-paper quality checks and is not available through the updater. [Results and release decision](docs/paper-workflow-development-check-2026-10-10.md).
+
+A document analyst for source-linked review. The native local edition prepares reusable notes for each selected paper, retrieves relevant passages, answers each overview contribution separately and checks findings against original source pages. The hosted Gemini edition chooses searches and page reads through its bounded agent loop. Both report which files were actually cited.
 This is a separate evolution of [Document Evidence Assistant](https://document-evidence-assistant.streamlit.app/), reusing a snapshot of its PDF extraction, BM25 retrieval, and citation validation. The original project remains unchanged.
 
 ## Example
@@ -35,7 +37,18 @@ The model returns a structured action envelope. Python validates the action and 
 
 In model mode, question planning separates factual information needs from requests about wording or style. The selected model reformulates searches using terminology from real document excerpts. Multiple queries are fused per document; this is model-assisted lexical retrieval, not embedding search. The agent can refine searches or read pages, then revise its draft against the original question and evidence. Planning and revision count toward the same request ceiling (normally six); budgets below three use the basic tool loop. The scripted walkthrough keeps its fixed steps.
 
-The native app can review all documents or one selected file. Ambiguous references can produce a clarification instead of silently choosing a paper. Extracted text is cached in memory for repeated questions on unchanged files and discarded when documents are cleared or replaced. Neither planning nor the final model check guarantees factual correctness or complete retrieval.
+The native app reviews the checked files; new files are checked by default. This branch's unreleased local Ollama workflow is separate from the Gemini graph above:
+
+```text
+Each selected paper -> source-linked purpose/contribution/findings/limitations notes
+                    -> note check -> in-memory cache
+Question + notes -> search plan -> selected-file retrieval + original note passages
+                 -> per-paper findings / focused answer -> source-page checks -> result
+```
+
+Overview and per-paper questions answer each selected source in a separate model request, then add optional cross-paper synthesis. This reduces source mixing in one crowded prompt. Empty slots and withheld findings remain partial results. The first review makes up to two preparation requests per uncached paper. Later questions reuse notes keyed by source SHA-256, model and note format; checkbox changes preserve the cache, while **Clear** or closing the app discards it. Notes are not written to disk automatically.
+
+The native question phase allows two planning/synthesis requests plus up to eight individual finding checks. Overview/per-paper requests also make one answer request per selected source. Preparation and individual-paper answer requests are additional, separately counted in exported results. A six-paper overview can therefore use up to 28 requests the first time and 16 after preparation is cached. Source/CLI defaults allow four finding checks; unchecked excess findings are withheld. Checks retain or remove the original claim and can repair citation references; they do not rewrite claims. These are checks by the same model, not independent factual verification. The first review takes longer, particularly on laptops without a dedicated GPU. No additional model or dependencies are installed by this workflow.
 
 ## Native local edition (Windows and Mac)
 
@@ -98,6 +111,10 @@ The bundled examples are development fixtures. Four [live Gemini development che
 
 The [October 10 natural-question development checks](docs/natural-question-development-check-2026-10-10.md) cover planning/retrieval and local Qwen runs on neuroanatomy papers. The [selected-document checks](docs/selected-document-development-check-2026-10-10.md) record checkbox scope, unresolved-request handling and a remaining weakness in cross-paper comparisons. These are development examples, not a quality benchmark.
 
+The [six-paper reading guide](docs/six-paper-reading-guide.md) records manually checked contributions and source pages for local workflow development. These papers and questions informed implementation and are not held-out evaluation data.
+
+The [paper-workflow development report](docs/paper-workflow-development-check-2026-10-10.md) records failed quality gates. Passing software tests does not establish that the workflow improves real-paper answers.
+
 ## Limitations
 
 - Lexical search can miss paraphrases and contradictions. Separate document BM25 scores are not directly comparable; searches retain each document's top matches.
@@ -106,6 +123,7 @@ The [October 10 natural-question development checks](docs/natural-question-devel
 - Prompt instructions tell the model to ignore document instructions, while tool allowlisting prevents arbitrary shell/network actions. This does not prove semantic prompt-injection resistance.
 - Invalid final answers stop without displaying findings. Tool errors can be observed and corrected within the remaining budget. A request-limit stop retains the trace but returns no final answer.
 - Evidence per decision is bounded to 12,000 characters including a metadata allowance, with space shared across documents. Planning excerpts use 8,000. New retrieval takes priority over old excerpts; page reads are capped at twelve passages. These bounds reduce context pressure but are not exact token counts; providers also have their own context limits.
+- Local paper-note preparation uses up to 14,000 source characters per paper; synthesis uses 12,000 shared across the selection and each finding check uses up to 16,000. Large selections can exceed context or finding-check budgets even though local indexing has no fixed file-count cap. Notes, model classifications and support decisions can still be wrong; inspect citations before relying on a review.
 - Public preview on Streamlit Community Cloud, using `cloud_app.py` and Python 3.12. Hosted mode omits Ollama and processes uploaded files on the server. It supports a host key or visitors' own Gemini keys. Shared-key access has process-local limits (15 requests/minute, 100/day, 30/session), including failed attempts. These reset on restart and are not a billing cap; provider quotas remain necessary. No production reliability claim. See [deployment notes](DEPLOYMENT.md).
 
 ## Reused code and provider references

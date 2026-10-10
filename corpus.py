@@ -13,6 +13,7 @@ class Corpus:
             raise ValueError(f"Supply at least one document" + (f" (maximum {max_documents})." if max_documents is not None else "."))
         self.documents = {}
         self.indexes = {}
+        self.paper_note_cache = {}
         for data in documents:
             identity = "d" + data["source_sha256"][:16]
             if identity in self.documents:

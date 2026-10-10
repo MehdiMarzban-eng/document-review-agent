@@ -111,8 +111,11 @@ with tempfile.TemporaryDirectory() as data:
     assert app.paths == [sample, second] and app.selected_paths() == [second]
     app.question.insert('1.0', 'What is the main takeaway?')
     root.update()
-    def capture_scope(corpus, *args):
+    def capture_scope(corpus, *args, **kwargs):
         assert [doc['name'] for doc in corpus.manifest()] == ['report-b.md']
+        assert corpus.paper_note_cache is app.paper_note_cache
+        corpus.paper_note_cache['test-note'] = {'text': 'cached'}
+        kwargs['progress']('Preparing test notes…')
         return {'answer': None, 'clarification': 'Subset verified'}
     with patch('agent.review', side_effect=capture_scope):
         app.start_review()
@@ -120,11 +123,13 @@ with tempfile.TemporaryDirectory() as data:
         wait(root, lambda: app.result is not None)
     app.select_documents(True)
     assert app.selected_paths() == [sample, second] and app.result is None
+    assert 'test-note' in app.paper_note_cache
     app.select_documents(False)
     assert not app.selected_paths() and str(app.start['state']) == 'disabled'
     app.start_review()
     assert 'Check at least one' in app.status.get()
     app.clear_review()
+    assert not app.paper_note_cache
     # Manual-only checks, offline/current feedback and explicit cancellation.
     import updates
     with patch.object(updates, 'check', return_value=None) as check, patch('desktop.messagebox.showinfo') as notice:

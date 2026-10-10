@@ -50,6 +50,7 @@ class Gemini:
 
 class Ollama:
     understands_questions = True
+    prepares_paper_notes = True
     def __init__(self, model, port=11434):
         if not isinstance(model, str) or not model.strip():
             raise ValueError("Specify an already installed local Ollama model.")
@@ -61,10 +62,10 @@ class Ollama:
     def decide(self, system, context, schema):
         result = post_json(f"http://127.0.0.1:{self.port}/api/chat", {
             "model": self.model, "stream": False, "format": schema,
-            "messages": [{"role": "system", "content": system + "\nReturn JSON matching this schema:\n" + json.dumps(schema)},
-                         {"role": "user", "content": json.dumps(context, ensure_ascii=False)
-                          + "\nAddress every part of the question using the retrieved evidence. "
-                            "The previous action's placeholder is not a final answer."}],
+            # The format field already constrains JSON. Repeating its large citation
+            # enums in the prompt wastes the small local model's source context.
+            "messages": [{"role": "system", "content": system + "\nReturn only the requested JSON."},
+                         {"role": "user", "content": json.dumps(context, ensure_ascii=False)}],
             "options": {"temperature": 0, "num_ctx": 8192, "num_predict": 4096}})
         try:
             return json.loads(result["message"]["content"])
