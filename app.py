@@ -76,11 +76,11 @@ if HOSTED:
         st.subheader("Local edition")
         st.write("For confidential files, use the local edition. Runs on your computer.")
         release = "https://github.com/MehdiMarzban-eng/document-review-agent/releases/download/"
-        st.markdown(f"[Windows]({release}windows-v0.2.3/Document-Review-Setup.exe) · [Mac]({release}local-preview-v0.2.2/Document-Review-Setup.dmg)")
-        st.markdown("**Setup download:** Windows **~6.6 GB** · Mac **~5.5 GB**")
+        st.markdown(f"[Windows]({release}local-preview-v0.3.1/Document-Review-Setup.exe) · [Mac]({release}local-preview-v0.3.1/Document-Review-Setup.dmg)")
+        st.markdown("**Setup download:** Windows **~6.3 GB** · Mac **~5 GB**")
         with st.expander("Setup details"):
-            st.write("Runs locally with Ollama and Qwen2.5 7B. No API key needed.")
-            st.markdown("| Download | Windows | Mac |\n| --- | ---: | ---: |\n| App | ~400 MB | ~610 MB |\n| Ollama | ~1.47 GB | ~167 MB |\n| Qwen2.5 7B | ~4.7 GB | ~4.7 GB |")
+            st.write("Native desktop app · Ollama + Qwen2.5 7B. No API key needed.")
+            st.markdown("| Download | Windows | Mac |\n| --- | ---: | ---: |\n| App | ~40 MB | ~45 MB |\n| Ollama | ~1.47 GB | ~167 MB |\n| Qwen2.5 7B | ~4.7 GB | ~4.7 GB |")
             st.write("Windows x64; Mac Intel or Apple silicon, macOS 14+.")
             st.write("14 GB free disk space required for setup. 16 GB RAM recommended.")
             st.caption("Unsigned preview. Test with fictional documents first; local processing is not a confidentiality guarantee.")
