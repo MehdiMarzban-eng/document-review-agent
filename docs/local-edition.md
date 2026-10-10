@@ -4,13 +4,15 @@ The current download release targets Windows and Mac, with the app opening in it
 
 ## Install
 
-- **Windows x64:** run `Document-Review-Setup.exe`, then choose Install. A desktop shortcut is created when permitted.
+- **Windows x64:** run the latest `Document-Review-Setup.exe`, then choose Install. Windows installer v0.2.3 fixes the path-length extraction error in the earlier preview. Close the old installer and download the replacement; Retry in the old version does not apply the fix. A desktop shortcut is created when permitted.
 - **Mac (Apple silicon or Intel):** open `Document-Review-Setup.dmg`, drag the app to Applications, then open it and choose Install. The correct architecture downloads automatically. macOS 14 or newer is required by the desktop toolkit.
 - **Linux x64 (experimental source support; no website download):** run `Document-Review-Setup.sh` in a terminal (`sh Document-Review-Setup.sh`). A graphical desktop with glibc 2.34+ and Qt/X11 dependencies is required. On Debian/Ubuntu, Qt/X11 and browser system libraries may need installation through the system package manager (see the package list in `.github/workflows/local-packages.yml`). The script does not request root access or change system packages.
 
 The small launcher downloads the app/runtime first. The app then shows **Local setup - Download AI dependencies**. Choose **Download and install** to prepare Ollama and the preselected model. Existing model installations are reused. Closing the app window stops the local services.
 
 The initial Windows installer is approximately 14 KB. This shifts the larger downloads into setup; it does not reduce the total runtime/model storage. Allow several GB of downloads, at least 14 GB free disk space for model preparation, and preferably 16 GB RAM. Speed varies.
+
+Current complete setup downloads: **Windows approximately 6.6 GB; Mac approximately 5.5 GB**. The app payload (including Python, Qt and review libraries) is approximately **400 MB on Windows** or **610 MB on Mac**. Ollama adds **1.47 GB on Windows** or **167 MB on Mac**; the Qwen2.5 7B model adds approximately **4.7 GB** on either platform. Installed disk use and temporary extraction space are separate from download size.
 
 ### Approximate first-install downloads
 
