@@ -33,10 +33,16 @@ def script_window(*, launcher):
     states = []
     def make_root():
         root = original_tk()
+        mainloop = root.mainloop
         def check():
             states.append(launcher.STATE['status'])
             root.destroy()
-        root.after(500, check)
+        def run_loop():
+            # Schedule after window construction; Mac's first Tk window can take
+            # longer than this timer and otherwise close before its startup task.
+            root.after(500, check)
+            mainloop()
+        root.mainloop = run_loop
         return root
     with patch.object(launcher, 'setup', side_effect=lambda: launcher.update('ready', 'Ready', 100)), \
          patch.object(desktop.tk, 'Tk', side_effect=make_root):
