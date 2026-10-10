@@ -2,6 +2,16 @@
 import re
 
 
+def requests_all_documents(question):
+    """True when the user explicitly asks for per-document or corpus-wide coverage."""
+    patterns = (
+        r"\bfor each\b", r"\beach (?:of )?(?:the )?(?:\d+ )?(?:papers?|documents?|files?|sources?)\b",
+        r"\bevery (?:paper|document|file|source)\b", r"\ball (?:the )?(?:papers?|documents?|files?|sources?)\b",
+        r"\bcollectively\b", r"\bacross (?:all )?(?:the )?(?:papers?|documents?|files?|sources?)\b",
+    )
+    return any(re.search(pattern, question, re.I) for pattern in patterns)
+
+
 def needs_document_choice(question, manifest):
     """A bare deictic reference has no selected referent in a multi-file review."""
     return (len(manifest) > 1 and

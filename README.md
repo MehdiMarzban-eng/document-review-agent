@@ -4,9 +4,9 @@
 
 **Source:** [MehdiMarzban-eng/document-review-agent](https://github.com/MehdiMarzban-eng/document-review-agent)
 
-**Current local edition:** Windows and Mac native desktop app, v0.3.5. [Download and setup details](docs/local-edition.md). The small installer prepares the app, Ollama and Qwen2.5 7B, then opens document review automatically. Use **Check for updates** in the app to install updates when you want; it does not check automatically. Existing Ollama/model files are preserved. The local edition has no fixed document-count, PDF-size, page-count or passage-count cap; available memory, processing time and model context still limit large reviews. No browser, Qt, Streamlit or UI web server. No separate Python installation or API key. Preview builds are unsigned; see setup details for privacy and verification limits.
+**Current local edition:** Windows and Mac native desktop app, v0.3.7. [Download and setup details](docs/local-edition.md). The small installer prepares the app, Ollama and Qwen2.5 7B, then opens document review automatically. Use **Check for updates** in the app to install updates when you want; it does not check automatically. Existing Ollama/model files are preserved. The local edition has no fixed document-count, PDF-size, page-count or passage-count cap; available memory, processing time and model context still limit large reviews. No browser, Qt, Streamlit or UI web server. No separate Python installation or API key. Preview builds are unsigned; see setup details for privacy and verification limits.
 
-A document analyst that can choose searches and page reads before returning cited findings.
+A document analyst that can choose searches and page reads before returning cited findings. For explicit “each paper” requests, it searches across the selected files and reports which files were actually cited.
 This is a separate evolution of [Document Evidence Assistant](https://document-evidence-assistant.streamlit.app/), reusing a snapshot of its PDF extraction, BM25 retrieval, and citation validation. The original project remains unchanged.
 
 ## Example

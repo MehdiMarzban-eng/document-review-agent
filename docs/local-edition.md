@@ -1,4 +1,4 @@
-# Local native edition — preview v0.3.5
+# Local native edition — preview v0.3.7
 
 Windows and Mac. Native Tk desktop controls using the bundled Python runtime. No embedded browser, Qt, Chromium, Streamlit or UI web server. Ollama supplies the local model API; it does not serve the user interface.
 
@@ -13,7 +13,7 @@ Choose documents, enter a question and choose **Review documents**. Select a cit
 
 ## Updates
 
-Source-development changes: document selection, question planning, alternative searches and a final claim/coverage check. Questions about explanations are no longer treated as facts that must appear word-for-word in a paper. Repeated questions reuse extracted text in memory. These changes require a new packaged build; existing installations do not load repository edits automatically.
+Question planning, alternative searches and a final claim check help interpret natural questions. For explicit “each/every/all paper” requests, retrieval includes every selected file; the result reports how many files have cited evidence and names files not covered in that answer. This coverage count does not establish that cited claims are factually correct. Repeated questions reuse extracted text in memory.
 
 Choose **Check for updates** when online. If a new version is available, choose **Install** or **Cancel**. Install downloads and verifies only the app/runtime package, then restarts the app. Save your review first. Existing Ollama/model files and the previous app version stay in place. The original shortcut opens the installed update.
 

@@ -293,6 +293,11 @@ class ReviewWindow:
                 self.sources.insert("end", label)
                 lines.append(label)
             lines.append("")
+        document_coverage = result.get("document_coverage", {})
+        if document_coverage.get("requested_all"):
+            lines += [f"Cited evidence from {document_coverage['cited']} of {document_coverage['total']} documents."]
+            if document_coverage.get("not_cited"):
+                lines += ["Not covered in this answer:", *document_coverage["not_cited"]]
         if answer["unanswered_parts"]:
             lines += ["Could not establish from the reviewed passages:", *answer["unanswered_parts"]]
         if result.get("coverage_check") == "unavailable":

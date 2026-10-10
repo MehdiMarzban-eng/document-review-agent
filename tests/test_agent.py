@@ -149,6 +149,34 @@ class AgentTests(unittest.TestCase):
         self.assertEqual({p["document_id"] for p in selected}, {"a", "b"})
         self.assertLessEqual(sum(len(p["text"]) + 200 for p in selected), 2800)
 
+    def test_explicit_each_document_request_retrieves_and_reports_every_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            paths = []
+            for index in range(6):
+                path = Path(directory) / f"paper-{index}.md"
+                path.write_text(f"Conclusion: Paper {index} studies a distinct brain network.")
+                paths.append(path)
+            corpus = Corpus.from_paths(paths)
+            manifest = corpus.manifest()
+            first_passage = corpus.overview()[0]
+            plan = {"intent": "State each paper's contribution", "presentation": "Plain language",
+                    "needs": ["Main contribution"], "queries": ["brain network conclusion"],
+                    # Simulate the planner incorrectly selecting only one of six.
+                    "document_ids": [manifest[0]["document_id"]], "clarification": ""}
+            answer = {"status": "answered", "unanswered_parts": [], "claims": [{
+                "text": "One paper describes a brain network.",
+                "evidence": [{"passage_id": first_passage["id"]}]}]}
+            checked = {"checks": [{"claim_number": 1, "support": "supported", "issue": ""}],
+                       "answer": answer}
+            provider = Script([plan, action("finish", answer=answer), checked])
+            provider.understands_questions = True
+            result = review(corpus, "For each of the six files, give its main contribution.", provider)
+            self.assertEqual(set(provider.contexts[1]["question_plan"]["document_ids"]),
+                             {doc["document_id"] for doc in manifest})
+            self.assertEqual(result["document_coverage"]["cited"], 1)
+            self.assertEqual(len(result["document_coverage"]["not_cited"]), 5)
+            self.assertEqual(result["answer"]["status"], "partially_answered")
+
     def test_adjacent_context_is_same_document_and_page(self):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "paper.md"
