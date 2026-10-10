@@ -82,16 +82,29 @@ with tempfile.TemporaryDirectory() as data:
     with patch("desktop.filedialog.asksaveasfilename", return_value=str(export)):
         app.save_review()
     assert json.loads(export.read_text())["answer"]["claims"]
+    # Repeated questions reuse extracted text instead of rereading every PDF.
+    with patch("corpus.Corpus.from_paths") as extract, patch("providers.Ollama", return_value=Walkthrough()):
+        app.start_review()
+        wait(root, lambda: app.result is not None)
+        extract.assert_not_called()
     # Changing the question discards stale output and prevents stale exports.
     app.question.insert("end", " changed")
     root.update()
     assert app.result is None and not app.citations
+    app.corpus_cache = None  # Deliberately force extraction for failure recovery.
     with patch("corpus.Corpus.from_paths", side_effect=ValueError("Unreadable document")):
         app.start_review()
         wait(root, lambda: not app.busy)
     assert app.status.get() == "Unreadable document"
     app.clear_review()
-    assert not app.paths and str(app.start["state"]) == "disabled"
+    assert not app.paths and str(app.start["state"]) == "disabled" and app.corpus_cache is None
+    sample = str(package / "app" / "samples" / "report-a.md")
+    with patch("desktop.filedialog.askopenfilenames", return_value=[sample]):
+        app.choose_documents()
+    assert tuple(app.scope["values"]) == ("All documents", "report-a.md")
+    app.scope.current(1)
+    assert app.scope.current() == 1
+    app.clear_review()
     # Manual-only checks, offline/current feedback and explicit cancellation.
     import updates
     with patch.object(updates, 'check', return_value=None) as check, patch('desktop.messagebox.showinfo') as notice:

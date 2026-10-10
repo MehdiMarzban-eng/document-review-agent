@@ -25,6 +25,10 @@ class RequestLimiter:
 
 
 class LimitedProvider:
+    @property
+    def understands_questions(self):
+        return getattr(self.provider, "understands_questions", False)
+
     def __init__(self, provider, limiter, session):
         self.provider, self.limiter, self.session = provider, limiter, session
 

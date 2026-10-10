@@ -22,6 +22,7 @@ def post_json(url, payload, headers=None):
 
 
 class Gemini:
+    understands_questions = True
     def __init__(self, key, model):
         from evidence_answers import normalize_api_key
         self.key = normalize_api_key(key)
@@ -48,6 +49,7 @@ class Gemini:
 
 
 class Ollama:
+    understands_questions = True
     def __init__(self, model, port=11434):
         if not isinstance(model, str) or not model.strip():
             raise ValueError("Specify an already installed local Ollama model.")

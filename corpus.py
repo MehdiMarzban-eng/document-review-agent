@@ -1,6 +1,7 @@
 """Multiple source documents with stable, document-qualified passage IDs."""
 from dataclasses import asdict
 import hashlib
+import re
 from pathlib import Path
 
 from evidence_search import SearchIndex, VERSION, chunk_page, index_pdf
@@ -55,6 +56,58 @@ class Corpus:
     def _annotate(self, identity, passages):
         return [dict(p, document_id=identity,
                      source_name=self.documents[identity]["source_name"]) for p in passages]
+
+    def overview(self):
+        """Real opening/closing excerpts for planning, never generated summaries."""
+        result = []
+        for identity, data in self.documents.items():
+            passages = data["passages"]
+            opening = passages[:2]
+            # Stop at the reference section so bibliography titles do not become summaries.
+            body = []
+            for passage in passages:
+                body.append(passage)
+                if re.search(r"\b(?:References|REFERENCES|Bibliography)\b", passage["text"]):
+                    break
+            closing = [p for p in body if re.search(
+                r"\b(conclusions?|summary|discussion)\b", p["text"], re.I)]
+            selected = {p["id"]: p for p in opening + closing[-2:]}
+            result.extend(self._annotate(identity, list(selected.values())))
+        return result
+
+    def search_many(self, queries, document_ids=None, top_k=3):
+        """Fuse independently worded searches per document without comparing BM25 scores."""
+        if not isinstance(queries, list) or not 1 <= len(queries) <= 4:
+            raise ValueError("Supply one to four search queries.")
+        identities = list(self.documents) if document_ids is None else document_ids
+        if not identities or any(i not in self.documents for i in identities):
+            raise ValueError("Unknown or empty document scope.")
+        result = []
+        for identity in identities:
+            scores, candidates = {}, {}
+            for query in queries:
+                for rank, passage in enumerate(self.search(query, identity, top_k=5), 1):
+                    key = passage["id"]
+                    candidates[key] = passage
+                    scores[key] = scores.get(key, 0) + 1 / (60 + rank)
+            ordered = sorted(candidates, key=lambda key: scores[key], reverse=True)
+            result.extend(candidates[key] for key in ordered[:top_k])
+        return self.with_neighbors(result)
+
+    def with_neighbors(self, passages):
+        """Include the next overlapping chunk when an excerpt ends mid-argument."""
+        expanded = {}
+        positions = {identity: {p["id"]: n for n, p in enumerate(data["passages"])}
+                     for identity, data in self.documents.items()}
+        for passage in passages:
+            expanded[passage["id"]] = passage
+            identity = passage["document_id"]
+            source = self.documents[identity]["passages"]
+            following = positions[identity][passage["id"]] + 1
+            if following < len(source) and source[following]["pdf_page"] == passage["pdf_page"]:
+                neighbor = self._annotate(identity, [source[following]])[0]
+                expanded[neighbor["id"]] = neighbor
+        return list(expanded.values())
 
     def search(self, query, document_id="", top_k=3):
         if not isinstance(query, str) or not query.strip() or len(query) > 1000:

@@ -29,7 +29,7 @@ def build(platform):
     subprocess.run([str(executable), "-m", "pip", "install", "--disable-pip-version-check", "-r", str(ROOT / "local" / "requirements.txt")], check=True)
     app = folder / "app"
     app.mkdir()
-    for name in ("agent.py", "corpus.py", "providers.py", "evidence_answers.py", "evidence_search.py", "demo.py"):
+    for name in ("agent.py", "corpus.py", "providers.py", "evidence_answers.py", "evidence_search.py", "demo.py", "question_understanding.py"):
         source = ROOT / name
         shutil.copy2(source, app / source.name)
     shutil.copytree(ROOT / "samples", app / "samples")

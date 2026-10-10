@@ -13,6 +13,8 @@ Choose documents, enter a question and choose **Review documents**. Select a cit
 
 ## Updates
 
+Source-development changes: document selection, question planning, alternative searches and a final claim/coverage check. Questions about explanations are no longer treated as facts that must appear word-for-word in a paper. Repeated questions reuse extracted text in memory. These changes require a new packaged build; existing installations do not load repository edits automatically.
+
 Choose **Check for updates** when online. If a new version is available, choose **Install** or **Cancel**. Install downloads and verifies only the app/runtime package, then restarts the app. Save your review first. Existing Ollama/model files and the previous app version stay in place. The original shortcut opens the installed update.
 
 There are no automatic update checks. The button contacts GitHub without sending documents, questions or findings. A failed check does not prevent offline use. Updates use HTTPS and SHA-256 checksums from the project release; this is not publisher code signing. A failed download leaves the current app selected; a failed process launch restores the previous selection. Runtime failures after a successful launch are not automatically detected.

@@ -9,3 +9,5 @@ results/
 .test-tmp/
 dist/
 output/pdf/
+output/*-diagnostic.json
+output/*-development-check.json

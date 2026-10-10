@@ -4,6 +4,10 @@ from shared_access import RequestLimiter, LimitedProvider
 
 
 class SharedTests(unittest.TestCase):
+    def test_planning_capability_survives_shared_allowance_wrapper(self):
+        provider = Mock(understands_questions=True)
+        self.assertTrue(LimitedProvider(provider, RequestLimiter(), {}).understands_questions)
+
     def test_process_limit_is_shared_between_sessions(self):
         limiter = RequestLimiter()
         for _ in range(15):

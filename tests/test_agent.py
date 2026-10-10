@@ -68,6 +68,107 @@ class AgentTests(unittest.TestCase):
         self.assertTrue(provider.contexts[1]["evidence"])
         self.assertEqual(provider.contexts[1]["requests_remaining"], 4)
 
+    def test_question_plan_retrieves_domain_evidence_without_question_word_overlap(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "paper.md"
+            source.write_text(
+                "Conclusion: The hippocampal network contains multiple reciprocal routes. "
+                "These connections are more complex than a simple serial circuit and help "
+                "explain why damage to one site can have varied effects.")
+            corpus = Corpus.from_paths([source])
+            document = corpus.manifest()[0]["document_id"]
+            citation = corpus.overview()[0]["id"]
+            plan = {"intent": "Explain the contribution in everyday language", "presentation": "Everyday language", "needs": ["Contribution"],
+                    "queries": ["hippocampal reciprocal routes serial circuit"],
+                    "document_ids": [document], "clarification": ""}
+            answer = {"status": "answered", "unanswered_parts": [], "claims": [
+                {"text": "Memory circuitry has several routes, rather than one chain.",
+                 "evidence": [{"passage_id": citation}]}]}
+            checked = {"checks": [{"claim_number": 1, "support": "supported", "issue": ""}], "answer": answer}
+            provider = Script([plan, action("finish", answer=answer), checked])
+            provider.understands_questions = True
+            result = review(corpus, "What's the big idea here? Explain it like we're chatting.", provider)
+            self.assertEqual(result["answer"]["status"], "answered")
+            self.assertTrue(provider.contexts[1]["evidence"])
+            self.assertEqual(result["coverage_check"], "completed")
+            self.assertEqual(result["model_requests"], 3)
+            self.assertEqual(provider.contexts[2]["question"], result["question"])
+
+    def test_ambiguous_document_reference_requests_clarification(self):
+        plan = {"intent": "Summarize one paper", "presentation": "Clear", "needs": ["Main findings"],
+                "queries": ["abstract conclusion"],
+                "document_ids": list(self.corpus.documents), "clarification": "Which paper should I review?"}
+        provider = Script([plan])
+        provider.understands_questions = True
+        result = review(self.corpus, "What does this paper tell us?", provider)
+        self.assertEqual(result["stop_reason"], "clarification")
+        self.assertIsNone(result["answer"])
+        self.assertEqual(result["model_requests"], 0)
+
+    def test_plan_cannot_select_invented_document_and_consumes_budget(self):
+        plan = {"intent": "Results", "presentation": "Clear", "needs": ["Results"], "queries": ["latency"],
+                "document_ids": ["invented"], "clarification": ""}
+        provider = Script([plan, action("search", "latency"), action("search", "error")])
+        provider.understands_questions = True
+        result = review(self.corpus, "What did they find?", provider, max_steps=3)
+        self.assertEqual(result["stop_reason"], "request_limit")
+        self.assertEqual(result["model_requests"], 3)
+        self.assertEqual(result["trace"][0]["action"], "plan_error")
+
+    def test_failed_coverage_check_preserves_valid_draft_with_visible_status(self):
+        plan = {"intent": "Results", "presentation": "Clear", "needs": ["Results"], "queries": ["latency"],
+                "document_ids": list(self.corpus.documents), "clarification": ""}
+        answer = {"status": "insufficient_evidence", "claims": [], "unanswered_parts": ["Unreported hardware."]}
+        provider = Script([plan, action("finish", answer=answer), action("shell")])
+        provider.understands_questions = True
+        result = review(self.corpus, "What hardware was used?", provider)
+        self.assertEqual(result["answer"]["status"], "insufficient_evidence")
+        self.assertEqual(result["coverage_check"], "unavailable")
+
+    def test_inconsistent_status_is_reconciled_without_inventing_claims_or_gaps(self):
+        document = self.corpus.manifest()[0]["document_id"]
+        citation = self.corpus.overview()[0]["id"]
+        plan = {"intent": "Results", "presentation": "Clear", "needs": ["Results"],
+                "queries": ["latency"], "document_ids": [document], "clarification": ""}
+        invalid = {"status": "insufficient_evidence", "unanswered_parts": [], "claims": [
+            {"text": "Latency was 12 milliseconds.", "evidence": [{"passage_id": citation}]}]}
+        corrected = {**invalid, "status": "answered"}
+        check = {"checks": [{"claim_number": 1, "support": "supported", "issue": ""}], "answer": corrected}
+        provider = Script([plan, action("finish", answer=invalid), check])
+        provider.understands_questions = True
+        result = review(self.corpus, "What is the latency?", provider)
+        self.assertEqual(result["answer"]["status"], "answered")
+        self.assertEqual(result["model_requests"], 3)
+        self.assertEqual(result["answer"]["unanswered_parts"], [])
+
+    def test_context_budget_balances_documents_and_keeps_whole_passages(self):
+        from question_understanding import bounded_evidence
+        passages = [{"id": f"{doc}{n}", "document_id": doc, "text": "x" * 500}
+                    for doc in ("a", "b") for n in range(30)]
+        selected = bounded_evidence(passages, 2800)
+        self.assertEqual({p["document_id"] for p in selected}, {"a", "b"})
+        self.assertLessEqual(sum(len(p["text"]) + 200 for p in selected), 2800)
+
+    def test_adjacent_context_is_same_document_and_page(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "paper.md"
+            source.write_text(" ".join(["memory"] * 180 + ["reciprocal"] * 180))
+            corpus = Corpus.from_paths([source])
+            first = corpus.open_page(next(iter(corpus.documents)), 1)[0]
+            expanded = corpus.with_neighbors([first])
+            self.assertEqual(len(expanded), 2)
+            self.assertEqual(expanded[0]["id"], first["id"])
+            self.assertEqual(expanded[1]["document_id"], first["document_id"])
+            self.assertEqual(expanded[1]["pdf_page"], first["pdf_page"])
+
+    def test_scope_guard_allows_explicit_comparisons_and_named_files(self):
+        from question_understanding import needs_document_choice
+        manifest = self.corpus.manifest()
+        self.assertTrue(needs_document_choice("Explain this article", manifest))
+        self.assertFalse(needs_document_choice("Compare this paper with the others", manifest))
+        self.assertFalse(needs_document_choice("Explain this paper: report-a.md", manifest))
+        self.assertFalse(needs_document_choice("Explain this article", manifest[:1]))
+
     def test_source_instructions_have_no_executable_tool(self):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "attack.txt"

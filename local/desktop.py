@@ -13,6 +13,7 @@ class ReviewWindow:
     def __init__(self, root, launcher, auto_start=True):
         self.root, self.launcher = root, launcher
         self.paths, self.citations = [], []
+        self.corpus_cache = None
         self.result = None
         self.busy = False
         self.updating = False
@@ -56,6 +57,13 @@ class ReviewWindow:
         self.clear.pack(side="left", padx=8)
         self.files = tk.StringVar(value="Choose PDF, TXT or MD files. No fixed document or file-size cap.")
         ttk.Label(page, textvariable=self.files, wraplength=950).pack(anchor="w", pady=8)
+        scope = ttk.Frame(page)
+        scope.pack(fill="x", pady=(0, 8))
+        ttk.Label(scope, text="Review:").pack(side="left", padx=(0, 8))
+        self.scope = ttk.Combobox(scope, values=["All documents"], state="readonly", width=70)
+        self.scope.current(0)
+        self.scope.pack(side="left", fill="x", expand=True)
+        self.scope.bind("<<ComboboxSelected>>", lambda event: self.invalidate())
         ttk.Label(page, text="What would you like to find out?").pack(anchor="w")
         self.question = ScrolledText(page, height=3, wrap="word", font=("", 11))
         self.question.pack(fill="x", pady=6)
@@ -112,11 +120,17 @@ class ReviewWindow:
         if not paths:
             return
         self.paths = list(paths)
+        self.corpus_cache = None
+        self.scope.configure(values=["All documents"] + [Path(p).name for p in paths])
+        self.scope.current(0)
         self.files.set(" · ".join(Path(p).name for p in paths))
         self.invalidate()
 
     def clear_review(self):
         self.paths = []
+        self.corpus_cache = None
+        self.scope.configure(values=["All documents"])
+        self.scope.current(0)
         self.question.delete("1.0", "end")
         self.files.set("Choose PDF, TXT or MD files. No fixed document or file-size cap.")
         self.status.set("Ready")
@@ -128,6 +142,7 @@ class ReviewWindow:
         for widget in (self.add, self.clear, self.start):
             widget.configure(state="disabled" if busy else "normal")
         self.question.configure(state="disabled" if busy else "normal")
+        self.scope.configure(state="disabled" if busy else "readonly")
         self.export.configure(state="normal" if self.result and not busy else "disabled")
 
     def start_review(self):
@@ -138,15 +153,18 @@ class ReviewWindow:
         self.invalidate()
         self.set_busy(True)
         self.status.set("Reviewing documents…")
-        paths = list(self.paths)
+        selected = self.scope.current()
+        paths = [self.paths[selected - 1]] if selected > 0 else list(self.paths)
         def work():
             try:
                 from agent import review
                 from corpus import Corpus
                 from providers import Ollama
-                result = review(Corpus.from_paths(paths, max_documents=None, max_file_bytes=None,
-                                                  max_pages=None, max_passages=None),
-                                question, Ollama(self.launcher.MODEL, port=11435))
+                signature = tuple((p, Path(p).stat().st_size, Path(p).stat().st_mtime_ns) for p in paths)
+                if not self.corpus_cache or self.corpus_cache[0] != signature:
+                    self.corpus_cache = (signature, Corpus.from_paths(paths, max_documents=None,
+                        max_file_bytes=None, max_pages=None, max_passages=None))
+                result = review(self.corpus_cache[1], question, Ollama(self.launcher.MODEL, port=11435))
                 self.events.put(("result", result))
             except Exception as error:
                 self.events.put(("error", str(error)))
@@ -262,7 +280,8 @@ class ReviewWindow:
         self.set_busy(False)
         answer = result.get("answer")
         if not answer:
-            self.status.set(result.get("error", "Request limit reached. Try a more specific question."))
+            self.status.set(result.get("clarification") or result.get("error") or
+                            "Review budget reached. Try selecting one document or narrowing the question.")
             return
         self.status.set(answer["status"].replace("_", " ").capitalize())
         lines = []
@@ -275,7 +294,9 @@ class ReviewWindow:
                 lines.append(label)
             lines.append("")
         if answer["unanswered_parts"]:
-            lines += ["Missing evidence:", *answer["unanswered_parts"]]
+            lines += ["Could not establish from the reviewed passages:", *answer["unanswered_parts"]]
+        if result.get("coverage_check") == "unavailable":
+            lines += ["", "Final answer check was unavailable. Check the cited passages."]
         self.set_text(self.findings, "\n".join(lines))
         if self.citations:
             self.sources.selection_set(0)

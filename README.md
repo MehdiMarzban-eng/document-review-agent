@@ -17,7 +17,10 @@ Compare two evaluation reports: which model has lower error, which has lower lat
 
 ```text
 PDF / TXT / MD -> document-qualified passages -> BM25 indexes
-Question + document manifest -> LangGraph decision node
+Question + source excerpts -> intent + information needs + alternative queries
+                              | scoped, fused BM25 retrieval
+                              v
+                         LangGraph decision node
                                 | search or open_page
                                 v
                            bounded tool execution
@@ -25,10 +28,14 @@ Question + document manifest -> LangGraph decision node
                                 +-> next decision
                                 | finish
                                 v
-                       citation validation -> findings + trace
+                       coverage/support revision -> citation validation -> findings + trace
 ```
 
 The model returns a structured action envelope. Python validates the action and executes only allowlisted read-only tools; the model never executes code. These are application-level tool calls, not provider-native function-calling messages. The graph uses conditional edges to loop or stop. A fixed request ceiling includes the final-answer call, and the agent receives its remaining budget.
+
+In model mode, question planning separates factual information needs from requests about wording or style. The selected model reformulates searches using terminology from real document excerpts. Multiple queries are fused per document; this is model-assisted lexical retrieval, not embedding search. The agent can refine searches or read pages, then revise its draft against the original question and evidence. Planning and revision count toward the same request ceiling (normally six); budgets below three use the basic tool loop. The scripted walkthrough keeps its fixed steps.
+
+The native app can review all documents or one selected file. Ambiguous references can produce a clarification instead of silently choosing a paper. Extracted text is cached in memory for repeated questions on unchanged files and discarded when documents are cleared or replaced. Neither planning nor the final model check guarantees factual correctness or complete retrieval.
 
 ## Native local edition (Windows and Mac)
 
@@ -89,6 +96,8 @@ Before claiming the agent improves the original pipeline, compare both on the sa
 
 The bundled examples are development fixtures. Four [live Gemini development checks](docs/live-check-2026-10-07.md) verified a cited comparison, a negative answer about undeployed models, and abstention on missing hardware details. These are manually reviewed examples, not a held-out quality benchmark. The app records elapsed time and request count, not monetary cost or token totals.
 
+The [October 10 natural-question development checks](docs/natural-question-development-check-2026-10-10.md) cover the new planning/retrieval workflow and local Qwen runs on neuroanatomy papers, including observed answer-quality limitations. These source changes are not yet a published local release.
+
 ## Limitations
 
 - Lexical search can miss paraphrases and contradictions. Separate document BM25 scores are not directly comparable; searches retain each document's top matches.
@@ -96,7 +105,7 @@ The bundled examples are development fixtures. Four [live Gemini development che
 - A valid citation establishes provenance, not that its text supports a claim. Human review remains necessary.
 - Prompt instructions tell the model to ignore document instructions, while tool allowlisting prevents arbitrary shell/network actions. This does not prove semantic prompt-injection resistance.
 - Invalid final answers stop without displaying findings. Tool errors can be observed and corrected within the remaining budget. A request-limit stop retains the trace but returns no final answer.
-- Context is capped at 60,000 evidence characters; page reads are capped at twelve passages. Providers also have their own context limits.
+- Evidence per decision is bounded to 12,000 characters including a metadata allowance, with space shared across documents. Planning excerpts use 8,000. New retrieval takes priority over old excerpts; page reads are capped at twelve passages. These bounds reduce context pressure but are not exact token counts; providers also have their own context limits.
 - Public preview on Streamlit Community Cloud, using `cloud_app.py` and Python 3.12. Hosted mode omits Ollama and processes uploaded files on the server. It supports a host key or visitors' own Gemini keys. Shared-key access has process-local limits (15 requests/minute, 100/day, 30/session), including failed attempts. These reset on restart and are not a billing cap; provider quotas remain necessary. No production reliability claim. See [deployment notes](DEPLOYMENT.md).
 
 ## Reused code and provider references

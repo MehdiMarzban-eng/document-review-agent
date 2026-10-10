@@ -227,11 +227,14 @@ with findings_column:
                                      key=f"cite_{number}_{index}"):
                             st.session_state["inspected_passage"] = identity
             if answer["unanswered_parts"]:
-                st.markdown("### Missing evidence")
+                st.markdown("### Could not establish from the reviewed passages")
                 for missing in answer["unanswered_parts"]:
                     st.write(missing)
+            if result.get("coverage_check") == "unavailable":
+                st.caption("Final answer check was unavailable. Check the cited passages.")
         else:
-            st.warning(result.get("error", "The request budget was reached without an accepted final answer. Inspect the activity below."))
+            st.warning(result.get("clarification") or result.get("error") or
+                       "The request budget was reached without an accepted final answer. Inspect the activity below.")
     else:
         with st.container(key="findings_empty"):
             st.markdown("### Your review will appear here")
