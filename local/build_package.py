@@ -75,9 +75,9 @@ def build(platform):
 
 
 def build_installer(platform, out, payload):
-    version = os.environ.get("GITHUB_REF_NAME", "local-preview-v0.2.1")
+    version = os.environ.get("GITHUB_REF_NAME", "local-preview-v0.2.2")
     if not version.startswith("local-preview-"):
-        version = "local-preview-v0.2.1"
+        version = "local-preview-v0.2.2"
     if platform == "windows-x64":
         manifest = out / "install.json"
         manifest.write_text(json.dumps({"version": version,
