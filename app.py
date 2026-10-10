@@ -74,7 +74,7 @@ st.caption("Compare reports, check a claim, or find missing evidence.")
 if HOSTED:
     with st.container(border=True):
         st.subheader("Local edition")
-        st.write("Run on your computer in a separate window.")
+        st.write("For confidential files, use the local edition. Runs on your computer.")
         release = "https://github.com/MehdiMarzban-eng/document-review-agent/releases/download/local-preview-v0.2.2/Document-Review-Setup."
         st.markdown(f"[Windows]({release}exe) · [Mac]({release}dmg)")
         st.caption("Preview · Required components download during setup.")
