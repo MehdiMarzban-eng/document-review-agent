@@ -50,7 +50,7 @@ class SetupWindow : Form {
         FormBorderStyle=FormBorderStyle.FixedDialog; MaximizeBox=false;
         BackColor=Color.FromArgb(246,248,252); Font=new Font("Segoe UI",11);
         var title = new Label {Text="Local edition setup",Left=28,Top=25,Width=440,Height=35,Font=new Font("Segoe UI",18,FontStyle.Bold)};
-        status.SetBounds(28,75,440,70); status.Text="Download: about 6.6 GB. Free space: 14 GB.\nApp 400 MB · Ollama 1.47 GB · Qwen 4.7 GB.";
+        status.SetBounds(28,75,440,70); status.Text="Download: about 6.3 GB. Free space: 14 GB.\nOllama 1.47 GB · Qwen 4.7 GB · Native app.";
         progress.SetBounds(28,160,440,15);
         install.SetBounds(28,195,140,40); install.Text="Install"; install.Click += async (s,e)=>await Install();
         Controls.AddRange(new Control[]{title,status,progress,install});
@@ -109,7 +109,7 @@ class SetupWindow : Form {
         }
     }
     static void Launch() {
-        Process.Start(new ProcessStartInfo(python,"-I \""+Path.Combine(folder,"launcher.py")+"\"") {
+        Process.Start(new ProcessStartInfo(python,"-I \""+Path.Combine(folder,"launcher.py")+"\" --install") {
             WorkingDirectory=folder,UseShellExecute=false,CreateNoWindow=true});
     }
 }

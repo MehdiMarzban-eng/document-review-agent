@@ -14,14 +14,21 @@ spec.loader.exec_module(launcher)
 
 
 class LocalTests(unittest.TestCase):
-    def test_desktop_restricts_web_content_to_its_own_loopback_ports(self):
-        spec = importlib.util.spec_from_file_location("local_desktop", ROOT / "local" / "desktop.py")
-        desktop = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(desktop)
-        self.assertTrue(desktop.is_local_url("http://127.0.0.1:8520/status", {8520}))
-        self.assertTrue(desktop.is_local_url("ws://127.0.0.1:8520/_stcore/stream", {8520}))
-        for url in ("https://google.com/", "http://127.0.0.1:1234", "http://127.0.0.1.evil.test:8520", "file:///private/document", "http://127.0.0.1:invalid"):
-            self.assertFalse(desktop.is_local_url(url, {8520}))
+    def test_setup_reuses_existing_model_and_finishes_without_app_server(self):
+        with tempfile.TemporaryDirectory() as folder:
+            data = Path(folder)
+            (data / "setup-complete.json").write_text('{}')
+            with patch.object(launcher, "DATA", data), patch.object(launcher, "PLATFORM", "windows-x64"), \
+                 patch.object(launcher, "engine_path", return_value=data / "ollama.exe"), \
+                 patch.object(launcher, "start_engine"), patch.object(launcher, "download") as download, \
+                 patch.object(launcher, "pull_model") as pull, \
+                 patch.object(launcher, "read_json", return_value={"models": [{"name": launcher.MODEL}]}):
+                launcher.setup()
+                self.assertEqual(launcher.STATE["status"], "ready")
+                download.assert_not_called()
+                pull.assert_not_called()
+                self.assertFalse(hasattr(launcher, "start_app"))
+                self.assertFalse(hasattr(launcher, "Handler"))
 
     def test_private_environment_does_not_inherit_cloud_credentials_or_proxies(self):
         with patch.dict("os.environ", {"GEMINI_API_KEY": "fake", "OLLAMA_HOST": "remote", "HTTPS_PROXY": "remote", "DOCUMENT_REVIEW_HOSTED": "1"}):

@@ -26,14 +26,15 @@ def build(platform):
     with tarfile.open(archive) as runtime:
         runtime.extractall(folder, filter="data")
     executable = folder / "python" / ("python.exe" if platform == "windows-x64" else "bin/python3")
-    subprocess.run([str(executable), "-m", "pip", "install", "--disable-pip-version-check", "-r", str(ROOT / "requirements.txt"), "zstandard==0.25.0", "PySide6==6.12.0"], check=True)
+    subprocess.run([str(executable), "-m", "pip", "install", "--disable-pip-version-check", "-r", str(ROOT / "local" / "requirements.txt")], check=True)
     app = folder / "app"
     app.mkdir()
-    for source in ROOT.glob("*.py"):
+    for name in ("agent.py", "corpus.py", "providers.py", "evidence_answers.py", "evidence_search.py", "demo.py"):
+        source = ROOT / name
         shutil.copy2(source, app / source.name)
     shutil.copytree(ROOT / "samples", app / "samples")
     shutil.copytree(ROOT / "docs", app / "docs")
-    for name in ("launcher.py", "desktop.py", "setup.html", "downloads.json"):
+    for name in ("launcher.py", "desktop.py", "downloads.json"):
         shutil.copy2(ROOT / "local" / name, folder / name)
     (folder / "platform.txt").write_text(platform)
     (folder / "START HERE.txt").write_text(
@@ -55,7 +56,7 @@ def build(platform):
         starter.write_text('#!/bin/sh\ncd "$(dirname "$0")" || exit 1\nexec ./python/bin/python3 ./launcher.py\n')
         starter.chmod(0o755)
     # Verify the actual bundled runtime and dependencies, not just the build host.
-    subprocess.run([str(executable), "-c", "import streamlit, langgraph, pypdf, zstandard; from PySide6.QtWebEngineWidgets import QWebEngineView; print('Bundled desktop/runtime imports passed')"], check=True)
+    subprocess.run([str(executable), "-c", "import tkinter, langgraph, pypdf; import importlib.util; assert importlib.util.find_spec('streamlit') is None; assert importlib.util.find_spec('PySide6') is None; print('Native desktop/runtime imports passed; no browser framework')"], check=True)
     subprocess.run([str(executable), "-m", "pip", "check"], check=True)
     # Runtime licenses remain in the bundle; archive also includes project provenance.
     shutil.copy2(ROOT / "ORIGIN.json", app / "ORIGIN.json")
@@ -75,9 +76,9 @@ def build(platform):
 
 
 def build_installer(platform, out, payload):
-    version = os.environ.get("GITHUB_REF_NAME", "local-preview-v0.2.2")
+    version = os.environ.get("GITHUB_REF_NAME", "local-preview-v0.3.0")
     if not version.startswith("local-preview-"):
-        version = "local-preview-v0.2.2"
+        version = "local-preview-v0.3.0"
     if platform == "windows-x64":
         manifest = out / "install.json"
         manifest.write_text(json.dumps({"version": version,

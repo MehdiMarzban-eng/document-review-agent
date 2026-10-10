@@ -30,7 +30,7 @@ if [ ! -f "$app/installed.txt" ]; then
 fi
 cd "$app"
 if [ "${DOCUMENT_REVIEW_DETACH:-0}" = 1 ]; then
-  nohup ./python/bin/python3 -I ./launcher.py >/dev/null 2>&1 &
+  nohup ./python/bin/python3 -I ./launcher.py --install >/dev/null 2>&1 &
   exit 0
 fi
-exec ./python/bin/python3 -I ./launcher.py
+exec ./python/bin/python3 -I ./launcher.py --install
