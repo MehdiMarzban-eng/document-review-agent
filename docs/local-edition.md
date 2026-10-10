@@ -2,6 +2,8 @@
 
 The local edition is intended to keep the familiar browser interface while removing Python installation, API keys and model-setting choices. Windows x64, Mac Apple silicon/Intel and Linux x64 builds are prepared by the `Local edition packages` workflow. ARM Windows/Linux builds are not included.
 
+[Download preview packages](https://github.com/MehdiMarzban-eng/document-review-agent/releases/tag/local-preview-v0.1.0). Published October 9, 2026: all four platform jobs passed the 25-test suite, bundled-runtime imports and dependency checks. The Windows setup welcome/close screens were browser-checked locally. No full Ollama/model installation or real inference was run in this release check; Mac/Linux user installation and offline end-to-end behavior remain unverified.
+
 ## Using the download
 
 1. Download the package for your operating system and extract the entire archive.

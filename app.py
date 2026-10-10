@@ -73,10 +73,19 @@ st.caption("Compare reports, check a claim, or find missing evidence.")
 
 if HOSTED:
     with st.container(border=True):
-        st.subheader("Prefer to keep documents on your computer?")
-        st.write("The local edition uses the same browser interface with an AI model on your computer. No API key needed.")
-        st.caption("Local downloads are being prepared for Windows, Mac and Linux. First-time setup downloads the model; later reviews can work offline. Preview testing is still in progress—use fictional documents while testing.")
-        st.link_button("About the local edition", "https://github.com/MehdiMarzban-eng/document-review-agent/blob/main/docs/local-edition.md")
+        st.subheader("Work on your own computer")
+        st.write("Prefer local document processing? Download the local edition and keep the same browser experience. No API key needed.")
+        with st.expander("Download the local app · Windows, Mac or Linux"):
+            st.write("1. Download for your computer and extract the folder.\n2. Open **Start Document Review**.\n3. Follow the setup screen, then choose **Open Document Review**.")
+            release = "https://github.com/MehdiMarzban-eng/document-review-agent/releases/download/local-preview-v0.1.0/"
+            for column, label, asset in zip(st.columns(4),
+                    ("Windows", "Mac · Apple silicon", "Mac · Intel", "Linux"),
+                    ("windows-x64.zip", "mac-arm64.tar.gz", "mac-x64.tar.gz", "linux-x64.tar.gz")):
+                column.link_button(label, release + "Document-Review-" + asset, use_container_width=True)
+            st.caption("Windows and Linux: x64. Mac: choose Apple silicon for an M-series chip, or Intel for an Intel processor (Apple menu → About This Mac).")
+            st.caption("First setup needs internet, several GB of downloads and at least 14 GB free disk space. Later reviews can work offline. A computer with 16 GB RAM is recommended; speed varies.")
+            st.warning("Preview downloads: unsigned and still being tested. Your operating system may block them. Test with fictional documents before using sensitive material; local processing is not a confidentiality guarantee.")
+            st.markdown("[Setup help and limitations](https://github.com/MehdiMarzban-eng/document-review-agent/blob/main/docs/local-edition.md)")
 
 def clear_workspace():
     discard_review()

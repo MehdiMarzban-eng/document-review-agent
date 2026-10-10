@@ -16,6 +16,8 @@ Visitors may select their own Gemini key under Review settings. This changes pro
 
 ## Private research route
 
+The [guided local edition preview](local-edition.md) packages the Python/app runtime and prepares Ollama/model downloads through a local browser setup screen. It forces local-only review mode and disables cloud features in its own Ollama process. It remains an unsigned, incompletely validated preview; do not treat download availability or mocked tests as confidential-use certification.
+
 For sensitive work, deploy the app on an institution-controlled computer or server and select Local Ollama model under Review settings. Bind Streamlit to `127.0.0.1` for a personal installation. Install a model separately. The Ollama adapter calls only `127.0.0.1:11434`, but Ollama itself must also be configured to disable cloud features and use an installed local model. Loopback alone does not establish local inference. This avoids sending review content to Google, but does not certify the machine, model server, dependencies or network. Keep Ollama's own cloud features disabled and assess that service separately. This app does not download models.
 
 See [local review setup](local-private-review.md) for the personal-installation route. The public Streamlit server cannot connect to a visitor’s laptop through its own loopback address.
