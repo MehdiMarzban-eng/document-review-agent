@@ -208,7 +208,9 @@ def main():
         STATE.update(installed=True)
     try:
         from desktop import run_window
-        run_window()
+        # Running this file creates __main__; importing launcher again would create
+        # a second module with DATA=None. Pass the initialized runtime explicitly.
+        run_window(launcher=sys.modules[__name__])
     finally:
         CANCELLED.set()
         stop_children()

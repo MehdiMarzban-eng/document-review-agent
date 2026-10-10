@@ -217,8 +217,9 @@ class ReviewWindow:
         self.root.destroy()
 
 
-def run_window(auto_start=None):
-    import launcher
+def run_window(auto_start=None, launcher=None):
+    if launcher is None:
+        import launcher
     sys.path.insert(0, str(launcher.ROOT / "app"))
     root = tk.Tk()
     if auto_start is None:

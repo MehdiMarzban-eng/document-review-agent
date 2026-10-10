@@ -1,5 +1,6 @@
 """Native controls and full review flow, mocked model; no network or model download."""
 import json
+import runpy
 from pathlib import Path
 import sys
 import tempfile
@@ -11,6 +12,7 @@ package = Path(sys.argv[1]).resolve()
 sys.path.insert(0, str(package))
 sys.path.insert(0, str(package / "app"))
 import launcher
+import desktop
 from desktop import ReviewWindow
 from demo import Walkthrough, DEMO_QUESTION
 
@@ -22,6 +24,26 @@ def wait(root, condition, timeout=30):
         root.update()
         time.sleep(.01)
     root.update()
+
+
+# Exercise the installer's actual script entry, not just an imported launcher.
+original_window, original_tk = desktop.run_window, tk.Tk
+def script_window(*, launcher):
+    assert launcher.DATA is not None and launcher.PLATFORM
+    states = []
+    def make_root():
+        root = original_tk()
+        def check():
+            states.append(launcher.STATE['status'])
+            root.destroy()
+        root.after(500, check)
+        return root
+    with patch.object(launcher, 'setup', side_effect=lambda: launcher.update('ready', 'Ready', 100)), \
+         patch.object(desktop.tk, 'Tk', side_effect=make_root):
+        original_window(auto_start=True, launcher=launcher)
+    assert states == ['ready'], states
+with patch.object(desktop, 'run_window', side_effect=script_window):
+    runpy.run_path(str(package / 'launcher.py'), run_name='__main__')
 
 
 with tempfile.TemporaryDirectory() as data:

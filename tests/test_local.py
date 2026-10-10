@@ -1,6 +1,10 @@
 import importlib.util
 import io
 import json
+import os
+import runpy
+import sys
+import types
 from pathlib import Path
 import tempfile
 import unittest
@@ -14,6 +18,28 @@ spec.loader.exec_module(launcher)
 
 
 class LocalTests(unittest.TestCase):
+    def test_script_entry_passes_initialized_runtime_to_window(self):
+        # Match python launcher.py: the active module is __main__, not launcher.
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            script = root / "launcher.py"
+            script.write_text((ROOT / "local" / "launcher.py").read_text(), encoding="utf-8")
+            (root / "platform.txt").write_text("windows-x64")
+            received = []
+            def window(*, launcher):
+                self.assertEqual(launcher.__name__, "__main__")
+                self.assertIsInstance(launcher.DATA, Path)
+                self.assertEqual(launcher.PLATFORM, "windows-x64")
+                launcher.DATA.mkdir(parents=True, exist_ok=True)
+                received.append(launcher)
+            desktop = types.ModuleType("desktop")
+            desktop.run_window = window
+            with patch.dict(sys.modules, {"desktop": desktop}), \
+                 patch.dict(os.environ, {"LOCALAPPDATA": folder, "XDG_DATA_HOME": folder}), \
+                 patch.object(Path, "home", return_value=root), patch.object(sys, "path", list(sys.path)):
+                runpy.run_path(str(script), run_name="__main__")
+            self.assertEqual(len(received), 1)
+
     def test_setup_reuses_existing_model_and_finishes_without_app_server(self):
         with tempfile.TemporaryDirectory() as folder:
             data = Path(folder)
