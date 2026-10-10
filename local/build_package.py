@@ -40,9 +40,9 @@ def build(platform):
         "DOCUMENT REVIEW LOCAL - PREVIEW\n\n"
         "1. Extract this entire download into a folder on your computer.\n"
         "2. Open Start Document Review.cmd (Windows) or Start Document Review.command (Mac) or Start Document Review.sh (Linux).\n"
-        "3. Your browser opens a guided setup. Choose Set up on this computer.\n\n"
+        "3. The app opens a guided setup. Choose Download and install.\n\n"
         "No separate Python or Ollama installation is needed. First setup downloads Ollama and the model.\n"
-        "Keep the launcher page open while reviewing; use Close local edition to stop it.\n"
+        "Close the app window to stop its local services.\n"
         "This preview is unsigned. Your OS or institution may block it. Do not disable security protections.\n"
         "Use fictional documents until this setup has been verified for your environment.\n"
         "Model/data downloads are in DocumentReviewLocal in your per-user application data folder.\n"
@@ -75,9 +75,9 @@ def build(platform):
 
 
 def build_installer(platform, out, payload):
-    version = os.environ.get("GITHUB_REF_NAME", "local-preview-v0.2.0")
+    version = os.environ.get("GITHUB_REF_NAME", "local-preview-v0.2.1")
     if not version.startswith("local-preview-"):
-        version = "local-preview-v0.2.0"
+        version = "local-preview-v0.2.1"
     if platform == "windows-x64":
         manifest = out / "install.json"
         manifest.write_text(json.dumps({"version": version,
