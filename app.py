@@ -75,8 +75,9 @@ if HOSTED:
     with st.container(border=True):
         st.subheader("Local edition")
         st.write("For confidential files, use the local edition. Runs on your computer.")
+        st.caption("No PDF file-size limit.")
         release = "https://github.com/MehdiMarzban-eng/document-review-agent/releases/download/"
-        st.markdown(f"[Windows]({release}local-preview-v0.3.3/Document-Review-Setup.exe) · [Mac]({release}local-preview-v0.3.3/Document-Review-Setup.dmg)")
+        st.markdown(f"[Windows]({release}local-preview-v0.3.4/Document-Review-Setup.exe) · [Mac]({release}local-preview-v0.3.4/Document-Review-Setup.dmg)")
         st.markdown("**Setup download:** Windows **~6.3 GB** · Mac **~5 GB**")
         with st.expander("Setup details"):
             st.write("Native desktop app · Ollama + Qwen2.5 7B. No API key needed.")
