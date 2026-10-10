@@ -54,7 +54,7 @@ class ReviewWindow:
         self.add.pack(side="left")
         self.clear = ttk.Button(bar, text="Clear", command=self.clear_review)
         self.clear.pack(side="left", padx=8)
-        self.files = tk.StringVar(value="Choose up to 8 PDF, TXT or MD files. No file-size cap.")
+        self.files = tk.StringVar(value="Choose PDF, TXT or MD files. No fixed document or file-size cap.")
         ttk.Label(page, textvariable=self.files, wraplength=950).pack(anchor="w", pady=8)
         ttk.Label(page, text="What would you like to find out?").pack(anchor="w")
         self.question = ScrolledText(page, height=3, wrap="word", font=("", 11))
@@ -111,9 +111,6 @@ class ReviewWindow:
             filetypes=[("Documents", "*.pdf *.txt *.md")])
         if not paths:
             return
-        if len(paths) > 8:
-            messagebox.showwarning("Document limits", "Choose up to 8 files.", parent=self.root)
-            return
         self.paths = list(paths)
         self.files.set(" · ".join(Path(p).name for p in paths))
         self.invalidate()
@@ -121,7 +118,7 @@ class ReviewWindow:
     def clear_review(self):
         self.paths = []
         self.question.delete("1.0", "end")
-        self.files.set("Choose up to 8 PDF, TXT or MD files. No file-size cap.")
+        self.files.set("Choose PDF, TXT or MD files. No fixed document or file-size cap.")
         self.status.set("Ready")
         self.invalidate()
 
@@ -147,7 +144,8 @@ class ReviewWindow:
                 from agent import review
                 from corpus import Corpus
                 from providers import Ollama
-                result = review(Corpus.from_paths(paths, max_file_bytes=None, max_pages=None, max_passages=None),
+                result = review(Corpus.from_paths(paths, max_documents=None, max_file_bytes=None,
+                                                  max_pages=None, max_passages=None),
                                 question, Ollama(self.launcher.MODEL, port=11435))
                 self.events.put(("result", result))
             except Exception as error:

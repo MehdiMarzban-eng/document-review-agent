@@ -7,9 +7,9 @@ from evidence_search import SearchIndex, VERSION, chunk_page, index_pdf
 
 
 class Corpus:
-    def __init__(self, documents):
-        if not documents or len(documents) > 8:
-            raise ValueError("Supply between one and eight documents.")
+    def __init__(self, documents, max_documents=8):
+        if not documents or (max_documents is not None and len(documents) > max_documents):
+            raise ValueError(f"Supply at least one document" + (f" (maximum {max_documents})." if max_documents is not None else "."))
         self.documents = {}
         self.indexes = {}
         for data in documents:
@@ -23,7 +23,11 @@ class Corpus:
             self.indexes[identity] = SearchIndex(data)
 
     @classmethod
-    def from_paths(cls, paths, max_file_bytes=20 * 1024 * 1024, max_pages=300, max_passages=2000):
+    def from_paths(cls, paths, max_documents=8, max_file_bytes=20 * 1024 * 1024,
+                   max_pages=300, max_passages=2000):
+        paths = list(paths)
+        if max_documents is not None and len(paths) > max_documents:
+            raise ValueError(f"Supply at most {max_documents} documents.")
         documents = []
         for source in map(Path, paths):
             if max_file_bytes is not None and source.stat().st_size > max_file_bytes:
@@ -41,7 +45,7 @@ class Corpus:
             if (max_pages is not None and data["page_count"] > max_pages) or (max_passages is not None and len(data["passages"]) > max_passages):
                 raise ValueError("Document is too large: maximum 300 pages / 2,000 passages.")
             documents.append(data)
-        return cls(documents)
+        return cls(documents, max_documents=max_documents)
 
     def manifest(self):
         return [{"document_id": key, "name": data["source_name"],

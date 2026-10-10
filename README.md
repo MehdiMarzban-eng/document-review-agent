@@ -4,7 +4,7 @@
 
 **Source:** [MehdiMarzban-eng/document-review-agent](https://github.com/MehdiMarzban-eng/document-review-agent)
 
-**Local edition preview:** [setup, platform support and limitations](docs/local-edition.md). Small platform installers prepare the app, Ollama and Qwen2.5 7B, then open document review automatically. The local edition uses native Tk controls, with no browser engine, Qt, Streamlit or UI web server. No separate Python installation or API key is needed. Preview builds are unsigned and have not established confidential-use readiness.
+**Current local edition:** Windows and Mac native desktop app, v0.3.5. [Download and setup details](docs/local-edition.md). The small installer prepares the app, Ollama and Qwen2.5 7B, then opens document review automatically. Use **Check for updates** in the app to install updates when you want; it does not check automatically. Existing Ollama/model files are preserved. The local edition has no fixed document-count, PDF-size, page-count or passage-count cap; available memory, processing time and model context still limit large reviews. No browser, Qt, Streamlit or UI web server. No separate Python installation or API key. Preview builds are unsigned; see setup details for privacy and verification limits.
 
 A document analyst that can choose searches and page reads before returning cited findings.
 This is a separate evolution of [Document Evidence Assistant](https://document-evidence-assistant.streamlit.app/), reusing a snapshot of its PDF extraction, BM25 retrieval, and citation validation. The original project remains unchanged.
@@ -30,7 +30,15 @@ Question + document manifest -> LangGraph decision node
 
 The model returns a structured action envelope. Python validates the action and executes only allowlisted read-only tools; the model never executes code. These are application-level tool calls, not provider-native function-calling messages. The graph uses conditional edges to loop or stop. A fixed request ceiling includes the final-answer call, and the agent receives its remaining budget.
 
-## Run on Windows
+## Native local edition (Windows and Mac)
+
+For confidential documents, download the [native local edition](https://document-review-agent.streamlit.app/#local-edition). It opens as a desktop app; it does not open a browser page or require a localhost web server. Setup installs Ollama and Qwen2.5 7B, then opens document review. The app supports any number and size of local PDFs, subject to your computer's memory and processing time. Updates are manual.
+
+See [setup and privacy details](docs/local-edition.md).
+
+## Developer: run the web demo from source
+
+This is the separate Streamlit web version for contributors. It opens in a browser at a local URL; it is not how the installed native local edition runs.
 
 Python 3.10 or newer:
 
@@ -40,13 +48,13 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m streamlit run app.py --server.address 127.0.0.1
 ```
 
-Open the local URL printed by Streamlit. The web app opens in **Gemini review**:
+Open the local URL printed by Streamlit. The web demo opens in **Gemini review**:
 
 1. Upload public/non-confidential documents, or choose **Try the example reports** to use two fictional reports with an explained comparison question.
 2. Enter a question. Configure a Gemini key if the host has not provided one, and consent to sending text and metadata to Google.
 3. Choose **Start review with Gemini**. Read the findings and click a citation to inspect its source passage. Clear documents and review when finished.
 
-No model request is sent automatically. Local Ollama is under **Review settings** in local installations. The public preview is not suitable for confidential research; see [privacy and security boundaries](docs/privacy-and-security.md).
+No model request is sent automatically. Optional Ollama access for this source-run web demo is under **Review settings**. The public preview is not suitable for confidential research; see [privacy and security boundaries](docs/privacy-and-security.md).
 
 For the scripted no-key, no-model example, use the CLI:
 
@@ -54,9 +62,9 @@ For the scripted no-key, no-model example, use the CLI:
 .\.venv\Scripts\python.exe review_documents.py
 ```
 
-For model-driven review, choose one of:
+For model-driven review in this developer web demo, choose one of:
 
-- **Local Ollama model:** install Ollama and a suitable local model yourself, then enter its installed name. The app only calls `127.0.0.1:11434`, never downloads a model. Disable Ollama's cloud features separately to keep inference local; loopback alone does not prevent Ollama from using its cloud service. See [local review setup](docs/local-private-review.md). Hardware, electricity, and initial model downloads are your responsibility. Not every small model can reliably follow the schema or review evidence.
+- **Local Ollama model:** install Ollama and a suitable local model yourself, then enter its installed name. The web demo only calls Ollama's API at `127.0.0.1:11434`; it never downloads a model. Disable Ollama's cloud features separately to keep inference local; loopback alone does not prevent Ollama from using its cloud service. See [local review setup](docs/local-private-review.md). Hardware, electricity, and initial model downloads are your responsibility. Not every small model can reliably follow the schema or review evidence.
 - **Gemini API:** the host can configure `GEMINI_API_KEY` in Streamlit Secrets; that key is the default. Visitors can choose **Review settings → Gemini API access → Use my own key**. Without a host key, enter your own key directly. Visitor keys reach the app server and remain in session memory. Visitor access uses their Google quota/billing and does not consume the demo allowance; it never falls back to the host key. Switching access clears findings, the entered key and consent. **Clear documents and review** also restores demo access. A personal key does not make uploads private. Explicitly enable sending retrieved text. The app does not expose the host key or save entered keys to disk. The question and retrieved text go to Google; source files and absolute file paths are not submitted. Filenames and fingerprints are included in the manifest. Free-tier access and quotas are account dependent. Keep billing disabled if you require zero API charges; software cannot determine whether a supplied key belongs to a billed project. No automatic provider fallback or retry occurs.
 
 CLI real-model example (prompts for the key; never put keys in command arguments):
@@ -65,7 +73,7 @@ CLI real-model example (prompts for the key; never put keys in command arguments
 .\.venv\Scripts\python.exe review_documents.py samples/report-a.md samples/report-b.md --provider gemini --model gemini-3.5-flash-lite
 ```
 
-The UI accepts at most eight documents, 20 MB per document, 300 pages and 2,000 passages per document. Uploaded temporary working files are removed after review; upload buffers and review data remain in the app session on the server until cleared or the session ends. Clear resets current app state, not provider copies or secure-erasure guarantees; exported JSON contains source excerpts. TXT/MD files have a single logical page. PDF citations include physical PDF pages and metadata labels.
+The **hosted web app** accepts up to eight documents, 20 MB per document, 300 pages and 2,000 passages per document. These caps help bound server workload and request context. Local native use does not have fixed document-count, file-size, page-count or passage-count caps; very large batches may need substantial memory and take longer to index and review. Both modes retain bounded retrieval/model-context and request budgets. Scanned PDFs still need OCR. Uploaded web files are processed on the hosting server; temporary working files are removed after review, while upload buffers and review data remain in the app session until cleared or the session ends. Clear resets current app state, not provider copies or secure-erasure guarantees; exported JSON contains source excerpts. TXT/MD files have a single logical page. PDF citations include physical PDF pages and metadata labels.
 
 ## Validation
 

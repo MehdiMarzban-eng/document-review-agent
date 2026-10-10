@@ -1,4 +1,4 @@
-# Local native edition — preview
+# Local native edition — preview v0.3.5
 
 Windows and Mac. Native Tk desktop controls using the bundled Python runtime. No embedded browser, Qt, Chromium, Streamlit or UI web server. Ollama supplies the local model API; it does not serve the user interface.
 
@@ -17,7 +17,7 @@ Choose **Check for updates** when online. If a new version is available, choose 
 
 There are no automatic update checks. The button contacts GitHub without sending documents, questions or findings. A failed check does not prevent offline use. Updates use HTTPS and SHA-256 checksums from the project release; this is not publisher code signing. A failed download leaves the current app selected; a failed process launch restores the previous selection. Runtime failures after a successful launch are not automatically detected.
 
-The local edition has no fixed file-size, page-count or passage-count cap. Up to eight documents can be selected together. Available memory and processing time still limit large documents; scanned PDFs still need OCR. Retrieval and model context/request budgets remain bounded. The hosted website retains its upload and document limits.
+The local edition has no fixed document-count, file-size, page-count or passage-count cap. Large batches still depend on available memory and processing time; scanned PDFs need OCR. Retrieval and model context/request budgets remain bounded. The hosted website retains its upload limits.
 
 ## Size and hardware
 
