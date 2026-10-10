@@ -7,3 +7,4 @@ indexes/
 results/
 *.pdf
 .test-tmp/
+dist/

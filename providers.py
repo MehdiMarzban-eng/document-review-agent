@@ -48,13 +48,16 @@ class Gemini:
 
 
 class Ollama:
-    def __init__(self, model):
+    def __init__(self, model, port=11434):
         if not isinstance(model, str) or not model.strip():
             raise ValueError("Specify an already installed local Ollama model.")
         self.model = model
+        if port not in (11434, 11435):
+            raise ValueError("Ollama must use an approved loopback port.")
+        self.port = port
 
     def decide(self, system, context, schema):
-        result = post_json("http://127.0.0.1:11434/api/chat", {
+        result = post_json(f"http://127.0.0.1:{self.port}/api/chat", {
             "model": self.model, "stream": False, "format": schema,
             "messages": [{"role": "system", "content": system},
                          {"role": "user", "content": json.dumps(context, ensure_ascii=False)}],

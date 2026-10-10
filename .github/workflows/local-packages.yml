@@ -1,0 +1,57 @@
+name: Local edition packages
+on:
+  push:
+    tags: ['local-preview-*']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows-x64
+          - os: macos-14
+            platform: mac-arm64
+          - os: macos-15-intel
+            platform: mac-x64
+          - os: ubuntu-22.04
+            platform: linux-x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r requirements.txt
+      - run: python -m unittest discover -s tests -v
+      - run: python local/build_package.py ${{ matrix.platform }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}
+          path: |
+            dist/Document-Review-*.zip
+            dist/Document-Review-*.tar.gz
+            dist/Document-Review-*.sha256
+          if-no-files-found: error
+          retention-days: 7
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: packages
+          merge-multiple: true
+      - name: Publish preview downloads
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$RELEASE_TAG" packages/* --prerelease --title "Local edition preview" --notes "Windows, Mac (Apple silicon and Intel), and Linux x64 packages include the app and a private Python runtime. Guided first-time setup downloads Ollama and qwen2.5:7b. These are unsigned preview builds. Packaging/import tests are not end-to-end model or confidentiality validation. Test with fictional documents first. See docs/local-edition.md for instructions and limitations."

@@ -1,0 +1,58 @@
+{
+  "windows-x64": {
+    "python": {
+      "name": "cpython-3.13.16+20261009-x86_64-pc-windows-msvc-install_only_stripped.tar.gz",
+      "size": 21969508,
+      "browser_download_url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261009/cpython-3.13.16%2B20261009-x86_64-pc-windows-msvc-install_only_stripped.tar.gz",
+      "digest": "sha256:3a7adfb69e3ff02a41ed38ac637808532b438ab3c8619af46ca5dbec5c1f5190"
+    },
+    "ollama": {
+      "name": "ollama-windows-amd64.zip",
+      "size": 1468085195,
+      "browser_download_url": "https://github.com/ollama/ollama/releases/download/v0.40.2/ollama-windows-amd64.zip",
+      "digest": "sha256:e29ad1d5063dd4b54b2492d9b00adab2cff9621bfa654b6c92aa8d6f1fdfe7fc"
+    }
+  },
+  "mac-arm64": {
+    "python": {
+      "name": "cpython-3.13.16+20261009-aarch64-apple-darwin-install_only_stripped.tar.gz",
+      "size": 25257849,
+      "browser_download_url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261009/cpython-3.13.16%2B20261009-aarch64-apple-darwin-install_only_stripped.tar.gz",
+      "digest": "sha256:11785155d0f70e634178219c20925d8f20be00a3da4684fc4f5019dd15602ef7"
+    },
+    "ollama": {
+      "name": "ollama-darwin.tgz",
+      "size": 167473220,
+      "browser_download_url": "https://github.com/ollama/ollama/releases/download/v0.40.2/ollama-darwin.tgz",
+      "digest": "sha256:e888b7637291ceb80b622c00ea067f62c86d9c50d419b3eb903032e4f1f8a4f6"
+    }
+  },
+  "mac-x64": {
+    "python": {
+      "name": "cpython-3.13.16+20261009-x86_64-apple-darwin-install_only_stripped.tar.gz",
+      "size": 24975282,
+      "browser_download_url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261009/cpython-3.13.16%2B20261009-x86_64-apple-darwin-install_only_stripped.tar.gz",
+      "digest": "sha256:bd085c51e960f00ee33b630e2b13ac90fe90cdc3da25a0f0bc0719b1294920bf"
+    },
+    "ollama": {
+      "name": "ollama-darwin.tgz",
+      "size": 167473220,
+      "browser_download_url": "https://github.com/ollama/ollama/releases/download/v0.40.2/ollama-darwin.tgz",
+      "digest": "sha256:e888b7637291ceb80b622c00ea067f62c86d9c50d419b3eb903032e4f1f8a4f6"
+    }
+  },
+  "linux-x64": {
+    "python": {
+      "name": "cpython-3.13.16+20261009-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz",
+      "size": 35082735,
+      "browser_download_url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261009/cpython-3.13.16%2B20261009-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz",
+      "digest": "sha256:24801ea31c7d406d559a17e2226325c723d50c56900b9c0da7b62adaae2affc9"
+    },
+    "ollama": {
+      "name": "ollama-linux-amd64.tar.zst",
+      "size": 1436368794,
+      "browser_download_url": "https://github.com/ollama/ollama/releases/download/v0.40.2/ollama-linux-amd64.tar.zst",
+      "digest": "sha256:726bee78706c281b0eeef00746efe51a044d71c592c3f0b195820707f31fdf04"
+    }
+  }
+}

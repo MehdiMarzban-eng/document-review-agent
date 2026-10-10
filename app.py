@@ -24,6 +24,7 @@ def shared_limiter():
 
 ROOT = Path(__file__).parent
 HOSTED = os.environ.get("DOCUMENT_REVIEW_HOSTED") == "1"
+LOCAL_ONLY = os.environ.get("DOCUMENT_REVIEW_LOCAL_ONLY") == "1"
 st.set_page_config(page_title="Document Review Agent", layout="wide", initial_sidebar_state="collapsed")
 st.markdown("""
 <style>
@@ -70,6 +71,13 @@ st.title("Document Review Agent")
 st.write("Ask a question about your documents. Get findings with citations you can open and check.")
 st.caption("Compare reports, check a claim, or find missing evidence.")
 
+if HOSTED:
+    with st.container(border=True):
+        st.subheader("Prefer to keep documents on your computer?")
+        st.write("The local edition uses the same browser interface with an AI model on your computer. No API key needed.")
+        st.caption("Local downloads are being prepared for Windows, Mac and Linux. First-time setup downloads the model; later reviews can work offline. Preview testing is still in progress—use fictional documents while testing.")
+        st.link_button("About the local edition", "https://github.com/MehdiMarzban-eng/document-review-agent/blob/main/docs/local-edition.md")
+
 def clear_workspace():
     discard_review()
     for field in list(st.session_state):
@@ -81,12 +89,12 @@ def clear_workspace():
 uploads = []
 key = model = ""
 cloud_allowed = False
-server_key = secret_setting("GEMINI_API_KEY")
+server_key = "" if LOCAL_ONLY else secret_setting("GEMINI_API_KEY")
 shared_key = isinstance(server_key, str) and bool(server_key.strip())
 use_shared_key = shared_key
-mode = "Gemini API"
+mode = "Local Ollama model" if LOCAL_ONLY else "Gemini API"
 with st.expander("Review settings", expanded=False):
-    if not HOSTED:
+    if not HOSTED and not LOCAL_ONLY:
         mode = st.selectbox("Review engine", ["Gemini API", "Local Ollama model"], on_change=discard_review)
     if mode == "Gemini API" and shared_key:
         key_source = st.radio("Gemini API access", ["Use the demo's key", "Use my own key"],
@@ -96,7 +104,7 @@ with st.expander("Review settings", expanded=False):
     budget = st.slider("Maximum model requests per review", 3, 10, 6)
     st.caption("A review stops at this limit, including the final answer request.")
     if mode == "Local Ollama model":
-        model = st.text_input("Installed Ollama model", placeholder="Local model name")
+        model = "qwen2.5:7b" if LOCAL_ONLY else st.text_input("Installed Ollama model", placeholder="Local model name")
     elif not use_shared_key:
         model = st.text_input("Gemini model", value="gemini-3.5-flash-lite")
 
@@ -111,7 +119,11 @@ if mode == "Gemini API":
         st.caption("Using your own Gemini key. It is sent to this app’s server, kept in session memory and not saved to disk by the app. Your Google quotas and billing apply. Clear documents and review removes the entered key from current app state.")
         key = st.text_input("Gemini API key", type="password", key="visitor_key", on_change=discard_review)
 else:
-    st.info("Local Ollama review · Text is sent only to Ollama at 127.0.0.1 on the computer running this app. Use an installed local model and disable Ollama cloud features separately before reviewing.")
+    if LOCAL_ONLY:
+        st.info("Local edition · Documents and AI processing stay on this computer in this configuration. No Google connection or API key is used.")
+        st.caption("Keep this computer and exported reviews protected. Local processing does not guarantee confidentiality or correct answers. Close the local launcher to stop the app.")
+    else:
+        st.info("Local Ollama review · Text is sent only to Ollama at 127.0.0.1 on the computer running this app. Use an installed local model and disable Ollama cloud features separately before reviewing.")
 
 
 def change_source():
@@ -124,14 +136,14 @@ source_choice = st.radio("Document source", ["Upload my documents", "Try the exa
                          key="source_choice", on_change=change_source)
 use_samples = source_choice == "Try the example reports"
 if use_samples:
-    st.write("These are two fictional model-evaluation reports. Report A and Report B describe different error and latency results, with limitations on robustness and deployment. Ask the example question below to see Gemini compare their evidence.")
+    st.write("These are two fictional model-evaluation reports. Report A and Report B describe different error and latency results, with limitations on robustness and deployment. Ask the example question below to see the model compare their evidence.")
     for path in sorted((ROOT / "samples").glob("*.md")):
         with st.expander(path.name):
             st.text(path.read_text(encoding="utf-8"))
 else:
     uploads = st.file_uploader("Upload 1–8 documents", type=["pdf", "txt", "md"], accept_multiple_files=True,
                                key=f"uploads_{st.session_state.get('upload_epoch', 0)}", on_change=discard_review)
-    st.caption("Readable PDFs, TXT or MD · Up to 8 files, 20 MB each. Scanned PDFs need OCR first. Selecting a file uploads it to the hosting server immediately.")
+    st.caption("Readable PDFs, TXT or MD · Up to 8 files, 20 MB each. Scanned PDFs need OCR first. " + ("Files are processed on this computer." if LOCAL_ONLY else "Selecting a file uploads it to the hosting server immediately."))
     if uploads:
         st.caption(f"{len(uploads)} document(s) selected")
 
@@ -175,7 +187,7 @@ with findings_column:
                         path.write_bytes(upload.getvalue())
                         paths.append(path)
                 corpus = Corpus.from_paths(paths)
-                provider = Gemini(key, model) if mode == "Gemini API" else Ollama(model)
+                provider = Gemini(key, model) if mode == "Gemini API" else Ollama(model, port=11435 if LOCAL_ONLY else 11434)
                 if mode == "Gemini API" and use_shared_key:
                     provider = LimitedProvider(provider, shared_limiter(), st.session_state)
                 with st.spinner("Investigating the documents and preparing findings…"):
@@ -247,8 +259,11 @@ if result:
 
 with st.expander("Where does my document go?"):
     st.write("Uploads are processed on the computer running this app. On the public preview, that is the hosting server. Temporary working files are removed when processing ends; uploads and review excerpts can remain in session memory.")
-    st.write("Gemini receives your question, filenames, document identifiers and the passages retrieved during review. Google’s data-use and retention terms depend on its service and billing setup; the app cannot verify those settings. Disabling stored API interactions does not guarantee zero provider retention.")
-    st.markdown("[Google API data-use terms](https://ai.google.dev/gemini-api/terms) · [Google retention guidance](https://ai.google.dev/gemini-api/docs/zdr)")
+    if LOCAL_ONLY:
+        st.write("This local edition sends review requests only to its local AI engine. Google Gemini is unavailable in this configuration. Protect your computer and exported files; local processing does not establish secure erasure or protection against malicious documents.")
+    else:
+        st.write("Gemini receives your question, filenames, document identifiers and the passages retrieved during review. Google’s data-use and retention terms depend on its service and billing setup; the app cannot verify those settings. Disabling stored API interactions does not guarantee zero provider retention.")
+        st.markdown("[Google API data-use terms](https://ai.google.dev/gemini-api/terms) · [Google retention guidance](https://ai.google.dev/gemini-api/docs/zdr)")
     st.caption("Clear documents and review removes the app’s current upload selection and review state. It cannot erase copies already sent to a provider or exported to a file, or guarantee secure erasure of server memory/disk. Exported reviews contain document excerpts.")
 
 st.button("Clear documents and review", key="clear_review", on_click=clear_workspace)
