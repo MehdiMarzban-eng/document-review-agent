@@ -1,0 +1,33 @@
+name: Publish checked desktop preview
+on:
+  push:
+    paths: ['.github/workflows/publish-desktop-preview.yml']
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      SOURCE_RUN: '38029210324'
+      RELEASE_TAG: local-preview-v0.2.2
+    steps:
+      - name: Verify Windows and both Mac builds
+        run: |
+          gh api "repos/$GH_REPO/actions/runs/$SOURCE_RUN/jobs" > jobs.json
+          python - <<'PY'
+          import json
+          jobs = json.load(open('jobs.json'))['jobs']
+          required = ('windows-x64', 'mac-arm64', 'mac-x64')
+          for platform in required:
+              match = [j for j in jobs if platform in j['name']]
+              assert len(match) == 1 and match[0]['conclusion'] == 'success', platform
+          PY
+      - name: Download checked platform packages
+        run: gh run download "$SOURCE_RUN" --name windows-x64 --name mac-arm64 --name mac-x64 --dir packages
+      - name: Publish Windows and Mac preview
+        run: |
+          gh release create "$RELEASE_TAG" packages/*/* --prerelease --title "Local desktop edition preview" --notes "Windows EXE and Mac DMG launchers download the app dependencies and open a dedicated desktop window. Windows and both Mac architecture builds passed automated tests, bundled-runtime imports and native-window smoke checks. Linux is deferred. Unsigned preview; full model installation, offline inference and confidential-use readiness remain unverified. See docs/local-edition.md."

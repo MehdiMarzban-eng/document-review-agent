@@ -17,8 +17,6 @@ jobs:
             platform: mac-arm64
           - os: macos-15-intel
             platform: mac-x64
-          - os: ubuntu-22.04
-            platform: linux-x64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -72,4 +70,4 @@ jobs:
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          gh release create "$RELEASE_TAG" packages/* --prerelease --title "Local desktop edition preview" --notes "Small Windows EXE, Mac DMG and Linux shell launchers download the full desktop dependencies. The app opens in its own window on all three platforms. Guided first-time setup downloads Ollama and qwen2.5:7b. These are unsigned previews; packaging checks are not end-to-end model or confidentiality validation. See docs/local-edition.md."
+          gh release create "$RELEASE_TAG" packages/* --prerelease --title "Local desktop edition preview" --notes "Small Windows EXE and Mac DMG launchers download the full desktop dependencies. The app opens in its own window on Windows and Mac. Guided first-time setup downloads Ollama and qwen2.5:7b. These are unsigned previews; packaging checks are not end-to-end model or confidentiality validation. See docs/local-edition.md."

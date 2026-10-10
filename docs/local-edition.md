@@ -1,22 +1,39 @@
 # Local desktop edition - preview
 
-The app opens in its own window on Windows, Mac and Linux. No separate Python installation or API key is needed.
+The current download release targets Windows and Mac, with the app opening in its own window. Linux packaging is experimental and is not offered on the website. No separate Python installation or API key is needed.
 
 ## Install
 
 - **Windows x64:** run `Document-Review-Setup.exe`, then choose Install. A desktop shortcut is created when permitted.
 - **Mac (Apple silicon or Intel):** open `Document-Review-Setup.dmg`, drag the app to Applications, then open it and choose Install. The correct architecture downloads automatically. macOS 14 or newer is required by the desktop toolkit.
-- **Linux x64:** run `Document-Review-Setup.sh` in a terminal (`sh Document-Review-Setup.sh`). A graphical desktop with glibc 2.34+ and Qt/X11 dependencies is required. On Debian/Ubuntu, missing `libxcb-cursor0`, `libxkbcommon-x11-0` or `libegl1` must be installed through the system package manager. The script does not request root access or change system packages.
+- **Linux x64 (experimental source support; no website download):** run `Document-Review-Setup.sh` in a terminal (`sh Document-Review-Setup.sh`). A graphical desktop with glibc 2.34+ and Qt/X11 dependencies is required. On Debian/Ubuntu, Qt/X11 and browser system libraries may need installation through the system package manager (see the package list in `.github/workflows/local-packages.yml`). The script does not request root access or change system packages.
 
 The small launcher downloads the app/runtime first. The app then shows **Local setup - Download AI dependencies**. Choose **Download and install** to prepare Ollama and the preselected model. Existing model installations are reused. Closing the app window stops the local services.
 
 The initial Windows installer is approximately 14 KB. This shifts the larger downloads into setup; it does not reduce the total runtime/model storage. Allow several GB of downloads, at least 14 GB free disk space for model preparation, and preferably 16 GB RAM. Speed varies.
 
+### Approximate first-install downloads
+
+Sizes below are decimal MB/GB, based on the pinned engine/runtime assets, desktop dependency wheels and the current model listing. App libraries are bundled together; these are component estimates rather than separate user downloads. Compression and architecture change the final payload size.
+
+| Component | Windows x64 | Mac | Linux x64 |
+| --- | ---: | ---: | ---: |
+| Qwen2.5 7B model | 4.7 GB | 4.7 GB | 4.7 GB |
+| Ollama engine | 1.47 GB | 167 MB | 1.44 GB |
+| Qt desktop window and embedded browser | 260 MB | 465 MB | 265 MB |
+| Private Python runtime | 22 MB | 25 MB | 35 MB |
+| Review app and remaining libraries | 100–180 MB | 100–180 MB | 100–180 MB |
+| Estimated total | 6.5–7 GB | 5.5–6 GB | 6.5–7 GB |
+
+The old approximately 145 MB Windows ZIP excluded Ollama, model weights and the new Qt desktop window. The model is the largest component. Installed size is larger than compressed downloads, and setup also needs temporary extraction space. Existing installations reuse prepared components.
+
+Sources: `local/downloads.json`, [Qt package metadata](https://pypi.org/project/PySide6/6.12.0/) and [Ollama model listing](https://ollama.com/library/qwen2.5:7b). The model tag can change; these figures are not a permanent size guarantee.
+
 ## Preview status
 
 Launchers are unsigned; OS/institution policy can block them. Do not disable security protections. Mac notarization, Windows signing, Linux installation polish and representative-machine testing remain release work. Download availability does not establish confidential-use readiness.
 
-The preceding v0.1.0 archive release remains available for reference. It opened a browser launcher; v0.2.0 replaces it with lightweight launchers and a dedicated Qt desktop window. See the GitHub prerelease for the current assets and exact build status.
+The preceding v0.1.0 archive release remains available for reference. It opened a browser launcher; v0.2.2 replaces it with lightweight launchers and a dedicated Qt desktop window. See the GitHub prerelease for the current assets and exact build status.
 
 ## Data boundaries
 
