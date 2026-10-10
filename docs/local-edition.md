@@ -11,6 +11,14 @@ Installation prepares the app, Ollama and Qwen2.5 7B. The same window switches a
 
 Choose documents, enter a question and choose **Review documents**. Select a citation to inspect the original passage. **Save review** exports JSON with source excerpts. **Clear** removes the current selection and results from the app.
 
+## Updates
+
+Choose **Check for updates** when online. If a new version is available, choose **Install** or **Cancel**. Install downloads and verifies only the app/runtime package, then restarts the app. Save your review first. Existing Ollama/model files and the previous app version stay in place. The original shortcut opens the installed update.
+
+There are no automatic update checks. The button contacts GitHub without sending documents, questions or findings. A failed check does not prevent offline use. Updates use HTTPS and SHA-256 checksums from the project release; this is not publisher code signing. A failed download leaves the current app selected; a failed process launch restores the previous selection. Runtime failures after a successful launch are not automatically detected.
+
+The local edition has no fixed file-size, page-count or passage-count cap. Up to eight documents can be selected together. Available memory and processing time still limit large documents; scanned PDFs still need OCR. Retrieval and model context/request budgets remain bounded. The hosted website retains its upload and document limits.
+
 ## Size and hardware
 
 The desktop/runtime payload excludes all former browser-framework dependencies. Exact current payload sizes are shown in the GitHub release assets and the website's Setup details.

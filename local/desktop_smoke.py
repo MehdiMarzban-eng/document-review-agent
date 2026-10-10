@@ -1,5 +1,6 @@
 """Native controls and full review flow, mocked model; no network or model download."""
 import json
+import gc
 import runpy
 from pathlib import Path
 import sys
@@ -36,6 +37,8 @@ def script_window(*, launcher):
         mainloop = root.mainloop
         def check():
             states.append(launcher.STATE['status'])
+            for callback in root.tk.call('after', 'info'):
+                root.after_cancel(callback)
             root.destroy()
         def run_loop():
             # Schedule after window construction; Mac's first Tk window can take
@@ -50,6 +53,7 @@ def script_window(*, launcher):
     assert states == ['ready'], states
 with patch.object(desktop, 'run_window', side_effect=script_window):
     runpy.run_path(str(package / 'launcher.py'), run_name='__main__')
+gc.collect()  # Release the first Tk interpreter on the GUI thread.
 
 
 with tempfile.TemporaryDirectory() as data:
@@ -88,6 +92,30 @@ with tempfile.TemporaryDirectory() as data:
     assert app.status.get() == "Unreadable document"
     app.clear_review()
     assert not app.paths and str(app.start["state"]) == "disabled"
+    # Manual-only checks, offline/current feedback and explicit cancellation.
+    import updates
+    with patch.object(updates, 'check', return_value=None) as check, patch('desktop.messagebox.showinfo') as notice:
+        app.check_updates()
+        wait(root, lambda: not app.updating)
+        check.assert_called_once()
+        assert notice.call_args.args[1] == "You're up to date."
+    with patch.object(updates, 'check', side_effect=updates.UpdateError('Offline')), patch('desktop.messagebox.showinfo') as notice:
+        app.check_updates()
+        wait(root, lambda: not app.updating)
+        assert notice.call_args.args[1] == 'Offline'
+    with patch.object(updates, 'prepare') as prepare:
+        app.offer_update({'version': 'local-preview-v9.9.9'})
+        dialog = next(child for child in root.winfo_children() if isinstance(child, tk.Toplevel))
+        buttons = [child for frame in dialog.winfo_children() for child in frame.winfo_children()
+                   if isinstance(child, __import__('tkinter.ttk', fromlist=['Button']).Button)]
+        assert {button['text'] for button in buttons} == {'Install', 'Cancel'}
+        next(button for button in buttons if button['text'] == 'Cancel').invoke()
+        root.update()
+        prepare.assert_not_called()
+    with patch.object(updates, 'prepare', side_effect=updates.UpdateError('Download failed')), patch('desktop.messagebox.showinfo') as notice:
+        app.install_update({'version': 'local-preview-v9.9.9'})
+        wait(root, lambda: not app.updating)
+        assert 'current app is unchanged' in notice.call_args.args[1]
     assert not any(name.startswith(("streamlit", "PySide6")) for name in sys.modules)
     (package.parent / "desktop-smoke.txt").write_text(
         "Native Tk setup -> review; cited findings, source selection, export, stale-clear and failure recovery passed. No web UI.\n")

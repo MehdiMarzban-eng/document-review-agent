@@ -15,6 +15,7 @@ class ReviewWindow:
         self.paths, self.citations = [], []
         self.result = None
         self.busy = False
+        self.updating = False
         self.events = queue.Queue()
         root.title("Document Review Agent")
         root.geometry("1050x760")
@@ -31,9 +32,11 @@ class ReviewWindow:
         self.retry.pack(anchor="w", pady=20)
         ttk.Label(self.setup_page, text="Ollama · Qwen2.5 7B · Processing stays on this computer.").pack(anchor="w")
         self.build_review()
+        self.update_button = ttk.Button(root, text="Check for updates", command=self.check_updates)
+        self.update_button.pack(side="bottom", anchor="e", padx=20, pady=8)
         if auto_start:
             root.after(0, self.begin_setup)
-        root.after(100, self.poll)
+        self.poll_id = root.after(100, self.poll)
 
     def begin_setup(self):
         self.retry.pack_forget()
@@ -51,7 +54,7 @@ class ReviewWindow:
         self.add.pack(side="left")
         self.clear = ttk.Button(bar, text="Clear", command=self.clear_review)
         self.clear.pack(side="left", padx=8)
-        self.files = tk.StringVar(value="Choose up to 8 PDF, TXT or MD files. 20 MB each.")
+        self.files = tk.StringVar(value="Choose up to 8 PDF, TXT or MD files. No file-size cap.")
         ttk.Label(page, textvariable=self.files, wraplength=950).pack(anchor="w", pady=8)
         ttk.Label(page, text="What would you like to find out?").pack(anchor="w")
         self.question = ScrolledText(page, height=3, wrap="word", font=("", 11))
@@ -108,8 +111,8 @@ class ReviewWindow:
             filetypes=[("Documents", "*.pdf *.txt *.md")])
         if not paths:
             return
-        if len(paths) > 8 or any(Path(p).stat().st_size > 20 * 1024**2 for p in paths):
-            messagebox.showwarning("Document limits", "Choose up to 8 files, at most 20 MB each.", parent=self.root)
+        if len(paths) > 8:
+            messagebox.showwarning("Document limits", "Choose up to 8 files.", parent=self.root)
             return
         self.paths = list(paths)
         self.files.set(" · ".join(Path(p).name for p in paths))
@@ -118,12 +121,13 @@ class ReviewWindow:
     def clear_review(self):
         self.paths = []
         self.question.delete("1.0", "end")
-        self.files.set("Choose up to 8 PDF, TXT or MD files. 20 MB each.")
+        self.files.set("Choose up to 8 PDF, TXT or MD files. No file-size cap.")
         self.status.set("Ready")
         self.invalidate()
 
     def set_busy(self, busy):
         self.busy = busy
+        self.update_button.configure(state="disabled" if busy else "normal")
         for widget in (self.add, self.clear, self.start):
             widget.configure(state="disabled" if busy else "normal")
         self.question.configure(state="disabled" if busy else "normal")
@@ -143,7 +147,8 @@ class ReviewWindow:
                 from agent import review
                 from corpus import Corpus
                 from providers import Ollama
-                result = review(Corpus.from_paths(paths), question, Ollama(self.launcher.MODEL, port=11435))
+                result = review(Corpus.from_paths(paths, max_file_bytes=None, max_pages=None, max_passages=None),
+                                question, Ollama(self.launcher.MODEL, port=11435))
                 self.events.put(("result", result))
             except Exception as error:
                 self.events.put(("error", str(error)))
@@ -154,6 +159,7 @@ class ReviewWindow:
             state = dict(self.launcher.STATE)
         self.setup_status.set(state["message"])
         self.progress["value"] = state["progress"]
+        self.update_button.configure(state="disabled" if self.busy or self.updating or state["status"] == "working" else "normal")
         if state["status"] == "ready" and self.setup_page.winfo_manager():
             self.setup_page.pack_forget()
             self.review_page.pack(fill="both", expand=True)
@@ -165,12 +171,93 @@ class ReviewWindow:
                 kind, value = self.events.get_nowait()
                 if kind == "result":
                     self.show_result(value)
+                elif kind == "update_check":
+                    self.offer_update(value)
+                elif kind == "update_progress":
+                    self.status.set(value)
+                    self.setup_status.set(value)
+                elif kind == "update_ready":
+                    self.finish_update(value)
+                    return
+                elif kind == "update_error":
+                    self.updating = False
+                    self.update_button.configure(state="normal")
+                    self.retry.configure(state="normal")
+                    if self.review_page.winfo_manager():
+                        self.set_busy(False)
+                    messagebox.showinfo("App updates", value, parent=self.root)
                 else:
                     self.set_busy(False)
                     self.status.set(value)
         except queue.Empty:
             pass
-        self.root.after(100, self.poll)
+        self.poll_id = self.root.after(100, self.poll)
+
+    def check_updates(self):
+        if self.busy or self.updating or self.launcher.STATE["status"] == "working":
+            return
+        self.updating = True
+        if self.review_page.winfo_manager():
+            self.set_busy(True)
+        self.update_button.configure(state="disabled")
+        def work():
+            try:
+                import updates
+                self.events.put(("update_check", updates.check(self.launcher.ROOT, self.launcher.PLATFORM)))
+            except Exception as error:
+                self.events.put(("update_error", str(error)))
+        threading.Thread(target=work, daemon=True).start()
+
+    def offer_update(self, info):
+        self.updating = False
+        if self.review_page.winfo_manager():
+            self.set_busy(False)
+        self.update_button.configure(state="normal")
+        if not info:
+            messagebox.showinfo("App updates", "You're up to date.", parent=self.root)
+            return
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Update available")
+        dialog.transient(self.root)
+        dialog.resizable(False, False)
+        ttk.Label(dialog, text=f"{info['version'].replace('local-preview-', '')} is available.", padding=20).pack()
+        ttk.Label(dialog, text="The app will restart. Save your review first.").pack(padx=20)
+        buttons = ttk.Frame(dialog, padding=20)
+        buttons.pack()
+        def install():
+            dialog.destroy()
+            self.install_update(info)
+        ttk.Button(buttons, text="Install", command=install).pack(side="left", padx=6)
+        ttk.Button(buttons, text="Cancel", command=dialog.destroy).pack(side="left", padx=6)
+        dialog.grab_set()
+
+    def install_update(self, info):
+        self.updating = True
+        self.set_busy(True)
+        self.update_button.configure(state="disabled")
+        self.retry.configure(state="disabled")
+        def work():
+            try:
+                import updates
+                destination = updates.prepare(info, self.launcher.DATA, self.launcher.PLATFORM,
+                    self.launcher.extract, lambda text: self.events.put(("update_progress", text)), self.launcher.CANCELLED)
+                self.events.put(("update_ready", destination))
+            except Exception:
+                self.events.put(("update_error", "Couldn't install the update. Your current app is unchanged. Try again when online."))
+        threading.Thread(target=work, daemon=True).start()
+
+    def finish_update(self, destination):
+        import updates
+        try:
+            self.launcher.stop_children()
+            updates.activate(self.launcher.DATA, self.launcher.ROOT, destination, self.launcher.PLATFORM)
+        except Exception as error:
+            self.events.put(("update_error", str(error)))
+            self.retry.configure(state="normal")
+            self.begin_setup()
+            self.poll_id = self.root.after(100, self.poll)
+            return
+        self.close()
 
     def show_result(self, result):
         self.result = result
@@ -214,6 +301,7 @@ class ReviewWindow:
     def close(self):
         self.launcher.CANCELLED.set()
         self.launcher.stop_children()
+        self.root.after_cancel(self.poll_id)
         self.root.destroy()
 
 

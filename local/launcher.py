@@ -204,6 +204,14 @@ def main():
         DATA = Path.home() / "Library" / "Application Support" / "DocumentReviewLocal"
     else:
         DATA = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share")) / "document-review-local"
+    from updates import active_root, launch
+    newer = active_root(DATA, ROOT, PLATFORM)
+    if newer:
+        try:
+            launch(newer, PLATFORM)
+            return
+        except OSError:
+            pass  # Open the original installed version if an update cannot start.
     if (DATA / "setup-complete.json").exists():
         STATE.update(installed=True)
     try:

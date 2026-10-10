@@ -34,9 +34,13 @@ def build(platform):
         shutil.copy2(source, app / source.name)
     shutil.copytree(ROOT / "samples", app / "samples")
     shutil.copytree(ROOT / "docs", app / "docs")
-    for name in ("launcher.py", "desktop.py", "downloads.json"):
+    for name in ("launcher.py", "desktop.py", "updates.py", "downloads.json"):
         shutil.copy2(ROOT / "local" / name, folder / name)
     (folder / "platform.txt").write_text(platform)
+    version = os.environ.get("GITHUB_REF_NAME", "local-preview-v0.3.4")
+    if not version.startswith("local-preview-"):
+        version = "local-preview-v0.3.4"
+    (folder / "version.txt").write_text(version)
     (folder / "START HERE.txt").write_text(
         "DOCUMENT REVIEW LOCAL - PREVIEW\n\n"
         "1. Extract this entire download into a folder on your computer.\n"
@@ -76,9 +80,9 @@ def build(platform):
 
 
 def build_installer(platform, out, payload):
-    version = os.environ.get("GITHUB_REF_NAME", "local-preview-v0.3.3")
+    version = os.environ.get("GITHUB_REF_NAME", "local-preview-v0.3.4")
     if not version.startswith("local-preview-"):
-        version = "local-preview-v0.3.3"
+        version = "local-preview-v0.3.4"
     if platform == "windows-x64":
         manifest = out / "install.json"
         manifest.write_text(json.dumps({"version": version,

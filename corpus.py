@@ -23,10 +23,10 @@ class Corpus:
             self.indexes[identity] = SearchIndex(data)
 
     @classmethod
-    def from_paths(cls, paths):
+    def from_paths(cls, paths, max_file_bytes=20 * 1024 * 1024, max_pages=300, max_passages=2000):
         documents = []
         for source in map(Path, paths):
-            if source.stat().st_size > 20 * 1024 * 1024:
+            if max_file_bytes is not None and source.stat().st_size > max_file_bytes:
                 raise ValueError("Each document must be at most 20 MB.")
             if source.suffix.lower() == ".pdf":
                 data = index_pdf(source)
@@ -38,7 +38,7 @@ class Corpus:
                         "passages": [asdict(p) for p in chunk_page(raw.decode("utf-8"), 1, "1")]}
             else:
                 raise ValueError("Supported formats: text-readable PDF, UTF-8 TXT, MD.")
-            if data["page_count"] > 300 or len(data["passages"]) > 2000:
+            if (max_pages is not None and data["page_count"] > max_pages) or (max_passages is not None and len(data["passages"]) > max_passages):
                 raise ValueError("Document is too large: maximum 300 pages / 2,000 passages.")
             documents.append(data)
         return cls(documents)
