@@ -10,6 +10,7 @@ using System.Security.Cryptography;
 using System.Threading.Tasks;
 using System.Web.Script.Serialization;
 using System.Windows.Forms;
+[assembly: System.Runtime.Versioning.TargetFramework(".NETFramework,Version=v4.8")]
 
 class SetupWindow : Form {
     Label status = new Label();
@@ -21,9 +22,17 @@ class SetupWindow : Form {
     static string folder;
     static string python;
     [STAThread] static void Main() {
+        AppContext.SetSwitch("Switch.System.IO.UseLegacyPathHandling", false);
+        AppContext.SetSwitch("Switch.System.IO.BlockLongPaths", false);
+        string[] args = Environment.GetCommandLineArgs();
+        if(args.Length == 4 && args[1] == "--test-extract") {
+            try { ExtractPackage(args[2],args[3]); Environment.Exit(0); }
+            catch(Exception error) { File.WriteAllText(args[2]+".error",error.ToString()); Environment.Exit(1); }
+            return;
+        }
         using (var reader = new StreamReader(Assembly.GetExecutingAssembly().GetManifestResourceStream("install.json")))
             config = new JavaScriptSerializer().Deserialize<Dictionary<string,object>>(reader.ReadToEnd());
-        folder = Path.Combine(home, "app-" + (string)config["version"], "Document Review Local");
+        folder = Path.Combine(home, "app", ((string)config["version"]).Replace("local-preview-", ""));
         python = Path.Combine(folder,"python","pythonw.exe");
         if (File.Exists(Path.Combine(folder,"installed.txt")) && File.Exists(python)) { Launch(); return; }
         Application.EnableVisualStyles();
@@ -37,13 +46,13 @@ class SetupWindow : Form {
         Application.Run(form);
     }
     public SetupWindow() {
-        Text="Document Review Agent"; ClientSize=new Size(500,230); StartPosition=FormStartPosition.CenterScreen;
+        Text="Document Review Agent"; ClientSize=new Size(500,270); StartPosition=FormStartPosition.CenterScreen;
         FormBorderStyle=FormBorderStyle.FixedDialog; MaximizeBox=false;
         BackColor=Color.FromArgb(246,248,252); Font=new Font("Segoe UI",11);
         var title = new Label {Text="Local edition setup",Left=28,Top=25,Width=440,Height=35,Font=new Font("Segoe UI",18,FontStyle.Bold)};
-        status.SetBounds(28,75,440,48); status.Text="Download app dependencies.";
-        progress.SetBounds(28,130,440,15);
-        install.SetBounds(28,165,140,40); install.Text="Install"; install.Click += async (s,e)=>await Install();
+        status.SetBounds(28,75,440,70); status.Text="Download: about 6.6 GB. Free space: 14 GB.\nApp 400 MB · Ollama 1.47 GB · Qwen 4.7 GB.";
+        progress.SetBounds(28,160,440,15);
+        install.SetBounds(28,195,140,40); install.Text="Install"; install.Click += async (s,e)=>await Install();
         Controls.AddRange(new Control[]{title,status,progress,install});
         FormClosing += (s,e)=>{if(client!=null) client.CancelAsync();};
     }
@@ -62,15 +71,7 @@ class SetupWindow : Form {
                 using(var sha=SHA256.Create()) using(var source=File.OpenRead(archive))
                     hash=BitConverter.ToString(sha.ComputeHash(source)).Replace("-","").ToLowerInvariant();
                 if(hash!=(string)config["sha256"]) throw new Exception("Download verification failed. Please retry.");
-                string root=Path.GetFullPath(Path.GetDirectoryName(folder))+Path.DirectorySeparatorChar;
-                Directory.CreateDirectory(root);
-                using(var zip=ZipFile.OpenRead(archive)) foreach(var entry in zip.Entries) {
-                    string target=Path.GetFullPath(Path.Combine(root,entry.FullName));
-                    if(!target.StartsWith(root,StringComparison.OrdinalIgnoreCase)) throw new Exception("Invalid archive path.");
-                    if(entry.FullName.EndsWith("/")) {Directory.CreateDirectory(target);continue;}
-                    Directory.CreateDirectory(Path.GetDirectoryName(target));
-                    entry.ExtractToFile(target,true);
-                }
+                ExtractPackage(archive,folder);
                 File.WriteAllText(Path.Combine(folder,"installed.txt"),(string)config["sha256"]);
             });
             File.Delete(archive);
@@ -83,7 +84,29 @@ class SetupWindow : Form {
                 shortcut.TargetPath=savedExe; shortcut.WorkingDirectory=home; shortcut.Save();
             } catch { /* A locked-down desktop must not prevent installation. */ }
             Launch(); Close();
-        } catch(Exception error) {status.Text=error.Message;progress.Style=ProgressBarStyle.Blocks;install.Text="Retry";install.Enabled=true;}
+        } catch(Exception error) {status.Text=error is PathTooLongException ? "The install path is too long. Download the latest installer." : error.Message;progress.Style=ProgressBarStyle.Blocks;install.Text="Retry";install.Enabled=true;}
+    }
+    static string LongPath(string path) {
+        return path.StartsWith(@"\\") ? @"\\?\UNC\"+path.Substring(2) : @"\\?\"+path;
+    }
+    static void ExtractPackage(string archive,string destination) {
+        string root=Path.GetFullPath(destination).TrimEnd(Path.DirectorySeparatorChar)+Path.DirectorySeparatorChar;
+        const string prefix="Document Review Local/";
+        Directory.CreateDirectory(LongPath(root));
+        using(var zip=ZipFile.OpenRead(archive)) foreach(var entry in zip.Entries) {
+            string name=entry.FullName.Replace('\\','/');
+            if(!name.StartsWith(prefix,StringComparison.Ordinal)) throw new Exception("Invalid archive root.");
+            string relative=name.Substring(prefix.Length);
+            if(relative.Length==0) continue;
+            // Reject rooted paths, alternate data streams and traversal before using extended paths.
+            if(relative.Contains(":") || relative.StartsWith("/") || Array.Exists(relative.Split('/'),p=>p==".."))
+                throw new Exception("Invalid archive path.");
+            string target=Path.GetFullPath(Path.Combine(root,relative));
+            if(!target.StartsWith(root,StringComparison.OrdinalIgnoreCase)) throw new Exception("Invalid archive path.");
+            if(name.EndsWith("/")) {Directory.CreateDirectory(LongPath(target));continue;}
+            Directory.CreateDirectory(LongPath(Path.GetDirectoryName(target)));
+            entry.ExtractToFile(LongPath(target),true);
+        }
     }
     static void Launch() {
         Process.Start(new ProcessStartInfo(python,"-I \""+Path.Combine(folder,"launcher.py")+"\"") {
