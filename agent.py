@@ -13,6 +13,8 @@ Search can target one document_id, or use an empty string for all documents.
 open_page reads a physical PDF page (1-based). TXT/MD files each have one logical page.
 Use tool results to decide whether another query, document, or page is needed.
 For comparisons, inspect evidence from the relevant documents before concluding.
+If a named model or requested result is missing, search the other documents before
+finishing while requests remain. An initial search of one document is not enough.
 You have a limited request budget. Finish when supported or when further search is unlikely to help.
 Final answers use exact retrieved passage IDs. Each claim requires evidence.
 An ID proves provenance, not support: ensure the actual text supports every claim.
@@ -20,16 +22,20 @@ Preserve qualifications, distinguish planned work from completed work, and repor
 Never invent numbers or claim the entire corpus lacks evidence just because retrieval missed it.
 Use insufficient_evidence with no claims when retrieved evidence cannot answer.
 Use partially_answered with missing details, or conflicting_evidence citing both positions.
-The reason field is a short action explanation, not hidden reasoning.
+The reason field is one short sentence (at most 200 characters), not hidden reasoning.
 For unused action fields use query='', document_id='', page=1.
 For non-finish actions use an empty insufficient_evidence answer placeholder.
+On finish, replace that placeholder with supported claims. Numeric results in
+retrieved passages are evidence even in fictional test reports. If error and latency
+are stated but robustness was not tested, report the stated results and the limitation;
+do not discard supported facts because another part is missing.
 """
 
 DECISION_SCHEMA = {
     "type": "object", "properties": {
         "action": {"type": "string", "enum": ["search", "open_page", "finish"]},
-        "query": {"type": "string"}, "document_id": {"type": "string"},
-        "page": {"type": "integer"}, "reason": {"type": "string"},
+        "query": {"type": "string", "maxLength": 1000}, "document_id": {"type": "string", "maxLength": 80},
+        "page": {"type": "integer"}, "reason": {"type": "string", "maxLength": 200},
         "answer": ANSWER_SCHEMA},
     "required": ["action", "query", "document_id", "page", "reason", "answer"],
     "additionalProperties": False,

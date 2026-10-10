@@ -119,6 +119,10 @@ class AgentTests(unittest.TestCase):
         post.return_value = {"message": {"content": "{}"}}
         Ollama("local-test").decide("rules", {}, {})
         self.assertEqual(post.call_args.args[0], "http://127.0.0.1:11434/api/chat")
+        payload = post.call_args.args[1]
+        self.assertEqual(payload["options"]["num_ctx"], 8192)
+        self.assertIn("Return JSON matching this schema", payload["messages"][0]["content"])
+        self.assertIn("placeholder is not a final answer", payload["messages"][1]["content"])
 
     def test_provider_failure_is_reported(self):
         provider = Script([])

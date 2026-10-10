@@ -59,9 +59,11 @@ class Ollama:
     def decide(self, system, context, schema):
         result = post_json(f"http://127.0.0.1:{self.port}/api/chat", {
             "model": self.model, "stream": False, "format": schema,
-            "messages": [{"role": "system", "content": system},
-                         {"role": "user", "content": json.dumps(context, ensure_ascii=False)}],
-            "options": {"temperature": 0, "num_predict": 4096}})
+            "messages": [{"role": "system", "content": system + "\nReturn JSON matching this schema:\n" + json.dumps(schema)},
+                         {"role": "user", "content": json.dumps(context, ensure_ascii=False)
+                          + "\nAddress every part of the question using the retrieved evidence. "
+                            "The previous action's placeholder is not a final answer."}],
+            "options": {"temperature": 0, "num_ctx": 8192, "num_predict": 4096}})
         try:
             return json.loads(result["message"]["content"])
         except (KeyError, TypeError, ValueError):

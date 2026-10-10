@@ -4,7 +4,7 @@
 
 **Source:** [MehdiMarzban-eng/document-review-agent](https://github.com/MehdiMarzban-eng/document-review-agent)
 
-**Local edition preview:** [setup, platform support and limitations](docs/local-edition.md). Small platform launchers download the app/runtime; guided setup then prepares Ollama and the selected model. The local app opens in a dedicated desktop window. No separate Python installation or API key is needed. Preview builds are unsigned and have not established confidential-use readiness.
+**Local edition preview:** [setup, platform support and limitations](docs/local-edition.md). Small platform installers prepare the app, Ollama and Qwen2.5 7B, then open document review automatically. The local edition uses native Tk controls, with no browser engine, Qt, Streamlit or UI web server. No separate Python installation or API key is needed. Preview builds are unsigned and have not established confidential-use readiness.
 
 A document analyst that can choose searches and page reads before returning cited findings.
 This is a separate evolution of [Document Evidence Assistant](https://document-evidence-assistant.streamlit.app/), reusing a snapshot of its PDF extraction, BM25 retrieval, and citation validation. The original project remains unchanged.
