@@ -1,4 +1,4 @@
-# Local native edition — preview v0.3.7
+# Local native edition — preview v0.3.8
 
 Windows and Mac. Native Tk desktop controls using the bundled Python runtime. No embedded browser, Qt, Chromium, Streamlit or UI web server. Ollama supplies the local model API; it does not serve the user interface.
 
@@ -9,11 +9,13 @@ Windows and Mac. Native Tk desktop controls using the bundled Python runtime. No
 
 Installation prepares the app, Ollama and Qwen2.5 7B. The same window switches automatically to document review when ready. Future opens start the installed engine and show review directly. There is no Open app step. Existing engine/model files in the local edition's data folder are reused. Closing the window stops the model process started by this copy.
 
-Choose documents, enter a question and choose **Review documents**. Select a citation to inspect the original passage. **Save review** exports JSON with source excerpts. **Clear** removes the current selection and results from the app.
+Add documents, check the files to review, enter a question and choose **Review documents**. New files are checked by default; adding files preserves existing choices. Every question uses the checked selection. Select a citation to inspect the original passage. **Save review** exports JSON with source excerpts. **Clear** removes the current selection and results from the app.
 
 ## Updates
 
-Question planning, alternative searches and a final claim check help interpret natural questions. For explicit “each/every/all paper” requests, retrieval includes every selected file; the result reports how many files have cited evidence and names files not covered in that answer. This coverage count does not establish that cited claims are factually correct. Repeated questions reuse extracted text in memory.
+Question planning searches every checked file, regardless of question wording. Results distinguish files with passages available to the model from files cited in the answer. A source without a citation is not necessarily irrelevant or unread. Explicit per-paper requests are marked partial if files lack citations. These counts do not establish full-document review or factual support. Repeated questions reuse extracted text in memory.
+
+**Not fully answered** shows unresolved clauses from your original question. Model-invented questions are replaced with your original request, preserving the partial status rather than hiding uncertainty. This checks wording origin, not whether the model correctly understood or answered the question.
 
 Choose **Check for updates** when online. If a new version is available, choose **Install** or **Cancel**. Install downloads and verifies only the app/runtime package, then restarts the app. Save your review first. Existing Ollama/model files and the previous app version stay in place. The original shortcut opens the installed update.
 

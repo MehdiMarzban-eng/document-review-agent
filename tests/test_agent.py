@@ -16,8 +16,10 @@ class Script:
     def __init__(self, actions):
         self.actions = iter(actions)
         self.contexts = []
+        self.schemas = []
     def decide(self, system, context, schema):
         self.contexts.append(copy.deepcopy(context))
+        self.schemas.append(copy.deepcopy(schema))
         return next(self.actions)
 
 
@@ -67,6 +69,8 @@ class AgentTests(unittest.TestCase):
         review(self.corpus, "Any result?", provider)
         self.assertTrue(provider.contexts[1]["evidence"])
         self.assertEqual(provider.contexts[1]["requests_remaining"], 4)
+        citation_schema = provider.schemas[1]["properties"]["answer"]["properties"]["claims"]["items"]["properties"]["evidence"]["items"]["properties"]["passage_id"]
+        self.assertEqual(set(citation_schema["enum"]), {p["id"] for p in provider.contexts[1]["evidence"]})
 
     def test_question_plan_retrieves_domain_evidence_without_question_word_overlap(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -94,16 +98,20 @@ class AgentTests(unittest.TestCase):
             self.assertEqual(result["model_requests"], 3)
             self.assertEqual(provider.contexts[2]["question"], result["question"])
 
-    def test_ambiguous_document_reference_requests_clarification(self):
+    def test_generic_singular_reference_uses_the_selected_collection(self):
         plan = {"intent": "Summarize one paper", "presentation": "Clear", "needs": ["Main findings"],
                 "queries": ["abstract conclusion"],
                 "document_ids": list(self.corpus.documents), "clarification": "Which paper should I review?"}
-        provider = Script([plan])
+        citation = self.corpus.overview()[0]["id"]
+        answer = {"status": "answered", "unanswered_parts": [], "claims": [{
+            "text": "A report contains measured results.", "evidence": [{"passage_id": citation}]}]}
+        provider = Script([plan, action("finish", answer=answer), {
+            "checks": [{"claim_number": 1, "support": "supported", "issue": ""}], "answer": answer}])
         provider.understands_questions = True
         result = review(self.corpus, "What does this paper tell us?", provider)
-        self.assertEqual(result["stop_reason"], "clarification")
-        self.assertIsNone(result["answer"])
-        self.assertEqual(result["model_requests"], 0)
+        self.assertEqual(result["stop_reason"], "finished")
+        self.assertEqual(set(provider.contexts[1]["question_plan"]["document_ids"]), set(self.corpus.documents))
+        self.assertEqual(result["document_coverage"]["in_context"], len(self.corpus.documents))
 
     def test_plan_cannot_select_invented_document_and_consumes_budget(self):
         plan = {"intent": "Results", "presentation": "Clear", "needs": ["Results"], "queries": ["latency"],
@@ -149,6 +157,36 @@ class AgentTests(unittest.TestCase):
         self.assertEqual({p["document_id"] for p in selected}, {"a", "b"})
         self.assertLessEqual(sum(len(p["text"]) + 200 for p in selected), 2800)
 
+    def test_comparison_searches_every_selected_document_and_rejects_invented_gap_questions(self):
+        question = "Do the papers disagree about any major point, or do they mostly study different parts of the problem? Cite the passages that support your answer."
+        document = self.corpus.manifest()[0]["document_id"]
+        citation = self.corpus.overview()[0]["id"]
+        plan = {"intent": "Compare papers", "presentation": "Clear", "needs": ["Disagreement", "Every methodology"],
+                "queries": ["results latency error"], "document_ids": [document], "clarification": ""}
+        answer = {"status": "partially_answered", "unanswered_parts": [
+            "Are there any conflicting viewpoints or overlapping ideas among the papers?",
+            "What specific brain structures are mentioned in each paper?",
+            "Are there any common methodologies or distinct approaches used in the papers?"],
+            "claims": [{"text": "Report A contains measured results.", "evidence": [{"passage_id": citation}]}]}
+        provider = Script([plan, action("finish", answer=answer), {
+            "checks": [{"claim_number": 1, "support": "supported", "issue": ""}], "answer": answer}])
+        provider.understands_questions = True
+        result = review(self.corpus, question, provider)
+        self.assertEqual({p["document_id"] for p in provider.contexts[1]["evidence"]}, set(self.corpus.documents))
+        self.assertEqual(result["document_coverage"]["total"], 2)
+        self.assertEqual(result["document_coverage"]["in_context"], 2)
+        self.assertEqual(result["document_coverage"]["cited"], 1)
+        self.assertEqual(result["answer"]["unanswered_parts"], [question])
+        self.assertEqual(result["trace"][-1]["action"], "unanswered_scope_fallback")
+
+    def test_original_unanswered_clause_is_preserved_without_extra_model_calls(self):
+        from question_understanding import ground_unanswered_parts
+        question = "What results were reported, and was robustness tested?"
+        parts, fallback = ground_unanswered_parts(["was robustness tested?"], question)
+        self.assertEqual(parts, ["was robustness tested?"])
+        self.assertFalse(fallback)
+        self.assertEqual(ground_unanswered_parts([], question), ([], False))
+
     def test_explicit_each_document_request_retrieves_and_reports_every_file(self):
         with tempfile.TemporaryDirectory() as directory:
             paths = []
@@ -189,13 +227,12 @@ class AgentTests(unittest.TestCase):
             self.assertEqual(expanded[1]["document_id"], first["document_id"])
             self.assertEqual(expanded[1]["pdf_page"], first["pdf_page"])
 
-    def test_scope_guard_allows_explicit_comparisons_and_named_files(self):
-        from question_understanding import needs_document_choice
-        manifest = self.corpus.manifest()
-        self.assertTrue(needs_document_choice("Explain this article", manifest))
-        self.assertFalse(needs_document_choice("Compare this paper with the others", manifest))
-        self.assertFalse(needs_document_choice("Explain this paper: report-a.md", manifest))
-        self.assertFalse(needs_document_choice("Explain this article", manifest[:1]))
+    def test_per_file_accounting_is_distinct_from_a_collection_comparison(self):
+        from question_understanding import requests_per_document_findings
+        self.assertTrue(requests_per_document_findings('For each of the six files, state its main contribution.'))
+        self.assertTrue(requests_per_document_findings('Give me one finding per paper.'))
+        self.assertFalse(requests_per_document_findings('Do the papers disagree?'))
+        self.assertFalse(requests_per_document_findings('Describe the evidence for each brain region.'))
 
     def test_source_instructions_have_no_executable_tool(self):
         with tempfile.TemporaryDirectory() as directory:

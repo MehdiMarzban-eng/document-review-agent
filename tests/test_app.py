@@ -88,6 +88,28 @@ class AppTests(unittest.TestCase):
         self.assertEqual(app.radio(key="gemini_key_source").value, "Use the demo's key")
         self.assertNotIn("visitor_key", app.session_state)
 
+    def test_document_checkboxes_define_scope_and_clear_selection_disables_review(self):
+        def capture_scope(corpus, *args):
+            self.assertEqual([doc['name'] for doc in corpus.manifest()], ['report-b.md'])
+            return {'answer': None, 'error': 'Subset verified', 'model_requests': 0,
+                    'elapsed_seconds': 0, 'stop_reason': 'error', 'trace': []}
+        with patch('agent.review', side_effect=capture_scope) as review:
+            app = self.app()
+            app.radio(key='source_choice').set_value('Try the example reports').run()
+            documents = [box for box in app.checkbox if box.key.startswith('selected_doc_')]
+            self.assertEqual(len(documents), 2)
+            self.assertTrue(all(box.value for box in documents))
+            documents[0].uncheck().run()
+            app.checkbox(key='gemini_consent').check().run()
+            app.button(key='review_start').click().run()
+            self.assertFalse(app.exception)
+            review.assert_called_once()
+            app.button(key='unselect_documents').click().run()
+            self.assertTrue(app.button(key='review_start').disabled)
+            self.assertNotIn('review_result', app.session_state)
+            app.button(key='select_documents').click().run()
+            self.assertTrue(all(box.value for box in app.checkbox if box.key.startswith('selected_doc_')))
+
 
 if __name__ == "__main__":
     unittest.main()

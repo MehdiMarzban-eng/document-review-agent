@@ -65,7 +65,8 @@ with tempfile.TemporaryDirectory() as data:
         app = ReviewWindow(root, launcher, auto_start=True)
         wait(root, lambda: bool(app.review_page.winfo_manager()))
     assert not app.setup_page.winfo_manager(), "Setup did not automatically open review"
-    app.paths = [str(package / "app" / "samples" / name) for name in ("report-a.md", "report-b.md")]
+    app.set_documents([str(package / "app" / "samples" / name) for name in ("report-a.md", "report-b.md")])
+    assert all(variable.get() for variable in app.document_vars.values())
     app.question.insert("1.0", DEMO_QUESTION)
     root.update()
     with patch("providers.Ollama", return_value=Walkthrough()):
@@ -101,9 +102,28 @@ with tempfile.TemporaryDirectory() as data:
     sample = str(package / "app" / "samples" / "report-a.md")
     with patch("desktop.filedialog.askopenfilenames", return_value=[sample]):
         app.choose_documents()
-    assert tuple(app.scope["values"]) == ("All documents", "report-a.md")
-    app.scope.current(1)
-    assert app.scope.current() == 1
+    assert app.selected_paths() == [sample]
+    app.document_checks[0].invoke()
+    assert not app.selected_paths() and str(app.start['state']) == 'disabled'
+    second = str(package / "app" / "samples" / "report-b.md")
+    with patch("desktop.filedialog.askopenfilenames", return_value=[second]):
+        app.choose_documents()
+    assert app.paths == [sample, second] and app.selected_paths() == [second]
+    app.question.insert('1.0', 'What is the main takeaway?')
+    root.update()
+    def capture_scope(corpus, *args):
+        assert [doc['name'] for doc in corpus.manifest()] == ['report-b.md']
+        return {'answer': None, 'clarification': 'Subset verified'}
+    with patch('agent.review', side_effect=capture_scope):
+        app.start_review()
+        assert all(str(checkbox['state']) == 'disabled' for checkbox in app.document_checks)
+        wait(root, lambda: app.result is not None)
+    app.select_documents(True)
+    assert app.selected_paths() == [sample, second] and app.result is None
+    app.select_documents(False)
+    assert not app.selected_paths() and str(app.start['state']) == 'disabled'
+    app.start_review()
+    assert 'Check at least one' in app.status.get()
     app.clear_review()
     # Manual-only checks, offline/current feedback and explicit cancellation.
     import updates

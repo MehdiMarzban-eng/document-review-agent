@@ -77,7 +77,7 @@ if HOSTED:
         st.write("For confidential files, use the local edition. Runs on your computer.")
         st.caption("No PDF file-size limit.")
         release = "https://github.com/MehdiMarzban-eng/document-review-agent/releases/download/"
-        st.markdown(f"[Windows]({release}local-preview-v0.3.5/Document-Review-Setup.exe) · [Mac]({release}local-preview-v0.3.5/Document-Review-Setup.dmg)")
+        st.markdown(f"[Windows]({release}local-preview-v0.3.7/Document-Review-Setup.exe) · [Mac]({release}local-preview-v0.3.7/Document-Review-Setup.dmg)")
         st.markdown("**Setup download:** Windows **~6.3 GB** · Mac **~5 GB**")
         with st.expander("Setup details"):
             st.write("Native desktop app · Ollama + Qwen2.5 7B. No API key needed.")
@@ -90,7 +90,7 @@ if HOSTED:
 def clear_workspace():
     discard_review()
     for field in list(st.session_state):
-        if field not in {"review_question", "gemini_consent", "visitor_key", "source_choice", "gemini_key_source"} and not field.startswith("uploads_"):
+        if field not in {"review_question", "gemini_consent", "visitor_key", "source_choice", "gemini_key_source"} and not field.startswith(("uploads_", "selected_doc_")):
             continue
         st.session_state.pop(field, None)
     st.session_state["upload_epoch"] = st.session_state.get("upload_epoch", 0) + 1
@@ -153,8 +153,27 @@ else:
     uploads = st.file_uploader("Upload 1–8 documents", type=["pdf", "txt", "md"], accept_multiple_files=True,
                                key=f"uploads_{st.session_state.get('upload_epoch', 0)}", on_change=discard_review)
     st.caption("Readable PDFs, TXT or MD · Up to 8 files, 20 MB each. Scanned PDFs need OCR first. " + ("Files are processed on this computer." if LOCAL_ONLY else "Selecting a file uploads it to the hosting server immediately."))
-    if uploads:
-        st.caption(f"{len(uploads)} document(s) selected")
+
+documents = sorted((ROOT / "samples").glob("*.md")) if use_samples else uploads
+document_keys = [f"selected_doc_{'sample' if use_samples else 'upload'}_{getattr(doc, 'file_id', str(doc))}"
+                 for doc in documents]
+
+def select_documents(keys, selected):
+    for name in keys:
+        st.session_state[name] = selected
+    discard_review()
+
+if documents:
+    for name in document_keys:
+        st.session_state.setdefault(name, True)
+    st.caption("Questions use checked documents.")
+    select_column, clear_column, _ = st.columns([1, 1, 4])
+    select_column.button("Select all", on_click=select_documents, args=(document_keys, True), key="select_documents")
+    clear_column.button("Clear selection", on_click=select_documents, args=(document_keys, False), key="unselect_documents")
+    selected_documents = [doc for doc, name in zip(documents, document_keys)
+                          if st.checkbox(doc.name, key=name, on_change=discard_review)]
+else:
+    selected_documents = []
 
 st.subheader("2. Ask a question")
 st.session_state.setdefault("review_question", DEMO_QUESTION if use_samples else "")
@@ -165,7 +184,7 @@ if use_samples and not question:
     st.caption("Example question: " + DEMO_QUESTION)
 if mode == "Gemini API":
     cloud_allowed = st.checkbox("I agree to send my question, document metadata and retrieved text to Google Gemini.", key="gemini_consent")
-ready = bool(question.strip()) and bool(use_samples or uploads) and (
+ready = bool(question.strip()) and bool(selected_documents) and (
     bool(key) and cloud_allowed if mode == "Gemini API" else bool(model.strip()))
 if not ready:
     st.caption("Choose documents, enter a question, and complete the model settings and consent above to begin.")
@@ -184,10 +203,10 @@ with findings_column:
                 raise ValueError("Supply at most eight documents.")
             with tempfile.TemporaryDirectory(prefix="document-review-") as temporary:
                 if use_samples:
-                    paths = sorted((ROOT / "samples").glob("*.md"))
+                    paths = selected_documents
                 else:
                     paths = []
-                    for number, upload in enumerate(uploads):
+                    for number, upload in enumerate(selected_documents):
                         if upload.size > 20 * 1024 * 1024:
                             raise ValueError("Each document must be at most 20 MB.")
                         folder = Path(temporary) / str(number)
@@ -227,9 +246,17 @@ with findings_column:
                                      key=f"cite_{number}_{index}"):
                             st.session_state["inspected_passage"] = identity
             if answer["unanswered_parts"]:
-                st.markdown("### Could not establish from the reviewed passages")
+                st.markdown("### Not fully answered")
                 for missing in answer["unanswered_parts"]:
                     st.write(missing)
+            coverage = result.get("document_coverage")
+            if coverage:
+                st.caption(f"Passages available: {coverage['in_context']}/{coverage['total']} selected documents. "
+                           f"Cited: {coverage['cited']}/{coverage['total']}.")
+                if coverage["not_cited"]:
+                    with st.expander("No citations in this answer"):
+                        for name in coverage["not_cited"]:
+                            st.write(name)
             if result.get("coverage_check") == "unavailable":
                 st.caption("Final answer check was unavailable. Check the cited passages.")
         else:

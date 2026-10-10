@@ -96,7 +96,7 @@ Before claiming the agent improves the original pipeline, compare both on the sa
 
 The bundled examples are development fixtures. Four [live Gemini development checks](docs/live-check-2026-10-07.md) verified a cited comparison, a negative answer about undeployed models, and abstention on missing hardware details. These are manually reviewed examples, not a held-out quality benchmark. The app records elapsed time and request count, not monetary cost or token totals.
 
-The [October 10 natural-question development checks](docs/natural-question-development-check-2026-10-10.md) cover the new planning/retrieval workflow and local Qwen runs on neuroanatomy papers, including observed answer-quality limitations. These source changes are not yet a published local release.
+The [October 10 natural-question development checks](docs/natural-question-development-check-2026-10-10.md) cover planning/retrieval and local Qwen runs on neuroanatomy papers. The [selected-document checks](docs/selected-document-development-check-2026-10-10.md) record checkbox scope, unresolved-request handling and a remaining weakness in cross-paper comparisons. These are development examples, not a quality benchmark.
 
 ## Limitations
 

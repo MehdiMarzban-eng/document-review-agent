@@ -13,6 +13,7 @@ class ReviewWindow:
     def __init__(self, root, launcher, auto_start=True):
         self.root, self.launcher = root, launcher
         self.paths, self.citations = [], []
+        self.document_vars, self.document_checks = {}, []
         self.corpus_cache = None
         self.result = None
         self.busy = False
@@ -57,13 +58,28 @@ class ReviewWindow:
         self.clear.pack(side="left", padx=8)
         self.files = tk.StringVar(value="Choose PDF, TXT or MD files. No fixed document or file-size cap.")
         ttk.Label(page, textvariable=self.files, wraplength=950).pack(anchor="w", pady=8)
-        scope = ttk.Frame(page)
-        scope.pack(fill="x", pady=(0, 8))
-        ttk.Label(scope, text="Review:").pack(side="left", padx=(0, 8))
-        self.scope = ttk.Combobox(scope, values=["All documents"], state="readonly", width=70)
-        self.scope.current(0)
-        self.scope.pack(side="left", fill="x", expand=True)
-        self.scope.bind("<<ComboboxSelected>>", lambda event: self.invalidate())
+        self.document_selector = ttk.Frame(page)
+        self.document_selector.pack(fill="x", pady=(0, 8))
+        selection_bar = ttk.Frame(self.document_selector)
+        selection_bar.pack(fill="x")
+        ttk.Label(selection_bar, text="Review checked documents").pack(side="left")
+        self.select_all = ttk.Button(selection_bar, text="Select all", command=lambda: self.select_documents(True))
+        self.select_all.pack(side="left", padx=(12, 4))
+        self.select_none = ttk.Button(selection_bar, text="Clear selection", command=lambda: self.select_documents(False))
+        self.select_none.pack(side="left")
+        list_frame = ttk.Frame(self.document_selector)
+        list_frame.pack(fill="x", pady=(4, 0))
+        self.document_canvas = tk.Canvas(list_frame, height=0, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(list_frame, orient="vertical", command=self.document_canvas.yview)
+        self.document_canvas.configure(yscrollcommand=scrollbar.set)
+        self.document_canvas.pack(side="left", fill="x", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        self.document_rows = ttk.Frame(self.document_canvas)
+        row_window = self.document_canvas.create_window((0, 0), window=self.document_rows, anchor="nw")
+        self.document_rows.bind("<Configure>", lambda event: self.document_canvas.configure(
+            scrollregion=self.document_canvas.bbox("all")))
+        self.document_canvas.bind("<Configure>", lambda event: self.document_canvas.itemconfigure(row_window, width=event.width))
+        self.document_canvas.bind("<MouseWheel>", self.scroll_documents)
         ttk.Label(page, text="What would you like to find out?").pack(anchor="w")
         self.question = ScrolledText(page, height=3, wrap="word", font=("", 11))
         self.question.pack(fill="x", pady=6)
@@ -111,26 +127,56 @@ class ReviewWindow:
         self.set_text(self.passage, "")
         self.sources.delete(0, "end")
         self.export.configure(state="disabled")
-        valid = self.paths and self.question.get("1.0", "end").strip() and not self.busy
+        selected = self.selected_paths()
+        self.files.set(f"{len(selected)} of {len(self.paths)} documents selected" if self.paths else
+                       "Choose PDF, TXT or MD files. No fixed document or file-size cap.")
+        valid = selected and self.question.get("1.0", "end").strip() and not self.busy
         self.start.configure(state="normal" if valid else "disabled")
+
+    def selected_paths(self):
+        return [path for path in self.paths if self.document_vars[path].get()]
+
+    def scroll_documents(self, event):
+        self.document_canvas.yview_scroll(-1 if event.delta > 0 else 1, "units")
+        return "break"
+
+    def set_documents(self, paths):
+        previous = self.document_vars
+        self.paths = list(dict.fromkeys(paths))
+        self.document_vars = {path: previous[path] if path in previous else tk.BooleanVar(value=True)
+                              for path in self.paths}
+        for child in self.document_rows.winfo_children():
+            child.destroy()
+        self.document_checks = []
+        names = [Path(path).name for path in self.paths]
+        for path in self.paths:
+            label = Path(path).name
+            if names.count(label) > 1:
+                label += f" — {Path(path).parent}"
+            checkbox = ttk.Checkbutton(self.document_rows, text=label,
+                variable=self.document_vars[path], command=self.invalidate)
+            checkbox.pack(anchor="w", fill="x")
+            checkbox.bind("<MouseWheel>", self.scroll_documents)
+            self.document_checks.append(checkbox)
+        self.document_canvas.configure(height=min(len(self.paths), 6) * 24)
+        self.document_canvas.yview_moveto(0)
+        self.corpus_cache = None
+        self.invalidate()
+
+    def select_documents(self, selected):
+        for variable in self.document_vars.values():
+            variable.set(selected)
+        self.invalidate()
 
     def choose_documents(self):
         paths = filedialog.askopenfilenames(parent=self.root, title="Choose documents",
             filetypes=[("Documents", "*.pdf *.txt *.md")])
         if not paths:
             return
-        self.paths = list(paths)
-        self.corpus_cache = None
-        self.scope.configure(values=["All documents"] + [Path(p).name for p in paths])
-        self.scope.current(0)
-        self.files.set(" · ".join(Path(p).name for p in paths))
-        self.invalidate()
+        self.set_documents(self.paths + list(paths))
 
     def clear_review(self):
-        self.paths = []
-        self.corpus_cache = None
-        self.scope.configure(values=["All documents"])
-        self.scope.current(0)
+        self.set_documents([])
         self.question.delete("1.0", "end")
         self.files.set("Choose PDF, TXT or MD files. No fixed document or file-size cap.")
         self.status.set("Ready")
@@ -139,22 +185,23 @@ class ReviewWindow:
     def set_busy(self, busy):
         self.busy = busy
         self.update_button.configure(state="disabled" if busy else "normal")
-        for widget in (self.add, self.clear, self.start):
+        for widget in (self.add, self.clear, self.start, self.select_all, self.select_none, *self.document_checks):
             widget.configure(state="disabled" if busy else "normal")
         self.question.configure(state="disabled" if busy else "normal")
-        self.scope.configure(state="disabled" if busy else "readonly")
+        if not busy:
+            valid = self.selected_paths() and self.question.get("1.0", "end").strip()
+            self.start.configure(state="normal" if valid else "disabled")
         self.export.configure(state="normal" if self.result and not busy else "disabled")
 
     def start_review(self):
         question = self.question.get("1.0", "end").strip()
-        if not self.paths or not question or len(question) > 2000:
-            self.status.set("Choose documents and enter a question of up to 2,000 characters.")
+        paths = self.selected_paths()
+        if not paths or not question or len(question) > 2000:
+            self.status.set("Check at least one document and enter a question of up to 2,000 characters.")
             return
         self.invalidate()
         self.set_busy(True)
         self.status.set("Reviewing documents…")
-        selected = self.scope.current()
-        paths = [self.paths[selected - 1]] if selected > 0 else list(self.paths)
         def work():
             try:
                 from agent import review
@@ -294,12 +341,13 @@ class ReviewWindow:
                 lines.append(label)
             lines.append("")
         document_coverage = result.get("document_coverage", {})
-        if document_coverage.get("requested_all"):
-            lines += [f"Cited evidence from {document_coverage['cited']} of {document_coverage['total']} documents."]
+        if document_coverage:
+            lines += [f"Passages available: {document_coverage['in_context']}/{document_coverage['total']} selected documents. "
+                      f"Cited: {document_coverage['cited']}/{document_coverage['total']}."]
             if document_coverage.get("not_cited"):
-                lines += ["Not covered in this answer:", *document_coverage["not_cited"]]
+                lines += ["No citations in this answer:", *document_coverage["not_cited"]]
         if answer["unanswered_parts"]:
-            lines += ["Could not establish from the reviewed passages:", *answer["unanswered_parts"]]
+            lines += ["", "Not fully answered:", *answer["unanswered_parts"]]
         if result.get("coverage_check") == "unavailable":
             lines += ["", "Final answer check was unavailable. Check the cited passages."]
         self.set_text(self.findings, "\n".join(lines))

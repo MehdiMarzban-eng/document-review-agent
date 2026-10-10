@@ -2,22 +2,26 @@
 import re
 
 
-def requests_all_documents(question):
-    """True when the user explicitly asks for per-document or corpus-wide coverage."""
+def requests_per_document_findings(question):
+    """Whether the answer must account for each file, beyond considering the selection."""
     patterns = (
-        r"\bfor each\b", r"\beach (?:of )?(?:the )?(?:\d+ )?(?:papers?|documents?|files?|sources?)\b",
-        r"\bevery (?:paper|document|file|source)\b", r"\ball (?:the )?(?:papers?|documents?|files?|sources?)\b",
-        r"\bcollectively\b", r"\bacross (?:all )?(?:the )?(?:papers?|documents?|files?|sources?)\b",
+        r"\b(?:each|every) (?:of )?(?:the )?(?:(?:\d+|two|three|four|five|six|seven|eight|nine|ten) )?(?:papers?|documents?|files?|sources?)\b",
+        r"\bper[- ](?:paper|document|file|source)\b",
     )
     return any(re.search(pattern, question, re.I) for pattern in patterns)
 
 
-def needs_document_choice(question, manifest):
-    """A bare deictic reference has no selected referent in a multi-file review."""
-    return (len(manifest) > 1 and
-            bool(re.search(r"\b(?:this|that)\s+(?:paper|article|document|study)\b", question, re.I)) and
-            not re.search(r"\b(?:compare|across|both|all|these|those)\b", question, re.I) and
-            not any(doc["name"].casefold() in question.casefold() for doc in manifest))
+def ground_unanswered_parts(parts, question):
+    """Never present invented subquestions as requests the user made.
+
+    Exact excerpts establish their origin, not semantic relevance. If the model
+    cannot identify an original clause, retain the conservative whole-question
+    limitation instead of declaring unrelated topics to be missing evidence.
+    """
+    if any(part.strip() not in question for part in parts):
+        return [question.strip()], True
+    return list(dict.fromkeys(part.strip() for part in parts)), False
+
 
 PLAN_SCHEMA = {
     "type": "object", "properties": {
@@ -44,13 +48,15 @@ from the supplied document excerpts. Do not simply repeat the question. Break co
 questions into information needs; include searches for counterevidence or limitations when relevant.
 For broad synthesis, seek the contribution, results, discussion and conclusions. For proposed
 research, seek existing findings, methods and limitations, not the literal wording of a proposal.
-Choose relevant document_ids from the manifest; use all when the user asks about the collection.
+The supplied documents are the user's checked selection. Their scope is already resolved.
+Include every supplied document_id; never narrow the selected scope or ask which paper.
+Generic references such as 'this paper' refer to the checked selection in this interface.
 Keep needs aligned to the ORIGINAL question. If asked for cautions about the authors' argument,
 seek limitations of their evidence, not just flaws in an older theory they criticize.
-Do not silently choose a paper if 'this paper' is ambiguous among multiple documents.
-In that case set clarification to a short question asking which document, and keep all IDs.
-Otherwise clarification is empty. Never answer the factual question during planning.
-Clarification is only for unresolved document scope, never for facts absent from a source.
+Do not turn intermediate search ideas into additional user requests. For example, a
+question about whether papers disagree does not ask for a list of every structure or
+every methodology. Those may guide retrieval, but they are not extra required answers.
+Set clarification to empty. Never answer the factual question during planning.
 Return only the schema. No outside knowledge is evidence.
 """
 
@@ -82,6 +88,16 @@ The first finding should directly answer the original question in the requested 
 If asked about caution, discuss limits of the available evidence, not simply repeat the thesis.
 For a draft with no claims, return checks=[] and still evaluate whether the evidence answers it.
 Only factual gaps belong in unanswered_parts; requests about wording or style do not.
+Recheck the ORIGINAL question independently of the plan. Remove gaps introduced by
+the planner or draft that the user did not ask about. Intermediate search topics are
+not unanswered requests. Do not add questions about structures, methods, or other
+topics unless the original question actually requests those details.
+Each unanswered_parts item MUST copy an exact contiguous clause from the original
+question that remains unresolved. Do not rewrite it into a new question. Use [] when
+the requested answer is supported; uncertainty in the papers can itself be an answer.
+For comparisons, a claim about agreement or disagreement must cite the actual positions
+in at least two different papers. One paper's discussion of the literature does not
+establish agreement among the selected papers. Do not infer agreement from silence.
 Research suggestions must be explicitly labeled suggestions, with supporting findings cited.
 If the draft failed to find an answer, inspect the evidence rather than assume it is absent.
 Repair any draft_validation_error. answered requires supported claims and no unanswered_parts;
