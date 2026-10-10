@@ -12,9 +12,13 @@ There is no application database or shared document cache. Only the request limi
 
 Google's unpaid-services terms restrict submitting sensitive, confidential or personal information, subject to the regional/service distinctions in its terms. Billing-enabled projects have different data-use provisions, but the app cannot inspect or guarantee a key's billing status, applicable contract or retention settings. A paid API by itself does not make this public preview suitable for private research.
 
+Visitors may select their own Gemini key under Review settings. This changes provider quota and billing, not the document data flow: the key and uploads still reach the app server, and review content still goes to Google. Keys are held in session memory and omitted from exports. Switching access clears the entered key, findings and consent.
+
 ## Private research route
 
-For sensitive work, deploy the app on an institution-controlled computer or server and select Local Ollama model under Review settings. Bind Streamlit to `127.0.0.1` for a personal installation. Install a model separately. The Ollama adapter calls only `127.0.0.1:11434`, so document-review model requests stay on that host. This avoids sending review content to Google, but does not certify the machine, model server, dependencies or network. Keep Ollama's own cloud features disabled and assess that service separately. This app does not download models.
+For sensitive work, deploy the app on an institution-controlled computer or server and select Local Ollama model under Review settings. Bind Streamlit to `127.0.0.1` for a personal installation. Install a model separately. The Ollama adapter calls only `127.0.0.1:11434`, but Ollama itself must also be configured to disable cloud features and use an installed local model. Loopback alone does not establish local inference. This avoids sending review content to Google, but does not certify the machine, model server, dependencies or network. Keep Ollama's own cloud features disabled and assess that service separately. This app does not download models.
+
+See [local review setup](local-private-review.md) for the personal-installation route. The public Streamlit server cannot connect to a visitor’s laptop through its own loopback address.
 
 For a multi-user research service, scope and verify these controls before making confidentiality claims:
 

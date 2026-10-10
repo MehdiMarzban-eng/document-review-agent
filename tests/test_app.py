@@ -18,9 +18,9 @@ class AppTests(unittest.TestCase):
             app = self.app()
             self.assertFalse(app.exception)
             self.assertEqual(app.selectbox[0].value, "Gemini API")
-            self.assertEqual(app.radio[0].value, "Upload my documents")
+            self.assertEqual(app.radio(key="source_choice").value, "Upload my documents")
             self.assertTrue(app.button(key="review_start").disabled)
-            app.radio[0].set_value("Try the example reports").run()
+            app.radio(key="source_choice").set_value("Try the example reports").run()
             self.assertTrue(app.text_area[0].value)
             self.assertTrue(app.button(key="review_start").disabled)
             self.assertFalse(app.text_input)
@@ -32,7 +32,7 @@ class AppTests(unittest.TestCase):
         with patch.dict("os.environ", {"DOCUMENT_REVIEW_HOSTED": "1"}), patch("providers.Gemini", return_value=Walkthrough()):
             app = self.app(hosted=True)
             self.assertFalse(app.selectbox)
-            app.radio[0].set_value("Try the example reports").run()
+            app.radio(key="source_choice").set_value("Try the example reports").run()
             app.checkbox(key="gemini_consent").check().run()
             app.button(key="review_start").click().run(timeout=30)
             self.assertFalse(app.exception)
@@ -42,7 +42,7 @@ class AppTests(unittest.TestCase):
             app.button(key="clear_review").click().run()
             self.assertFalse(app.exception)
             self.assertNotIn("review_result", app.session_state)
-            self.assertEqual(app.radio[0].value, "Upload my documents")
+            self.assertEqual(app.radio(key="source_choice").value, "Upload my documents")
             self.assertEqual(app.text_area[0].value, "")
             self.assertFalse(app.checkbox(key="gemini_consent").value)
             self.assertEqual(app.session_state["shared_model_requests"], allowance)
@@ -50,13 +50,43 @@ class AppTests(unittest.TestCase):
     def test_source_changes_discard_previous_findings(self):
         with patch("providers.Gemini", return_value=Walkthrough()):
             app = self.app()
-            app.radio[0].set_value("Try the example reports").run()
+            app.radio(key="source_choice").set_value("Try the example reports").run()
             app.checkbox(key="gemini_consent").check().run()
             app.button(key="review_start").click().run(timeout=30)
             self.assertIn("review_result", app.session_state)
-            app.radio[0].set_value("Upload my documents").run()
+            app.radio(key="source_choice").set_value("Upload my documents").run()
             self.assertNotIn("review_result", app.session_state)
             self.assertEqual(app.text_area[0].value, "")
+
+    def test_own_key_uses_visitor_credentials_without_shared_allowance(self):
+        with patch("providers.Gemini", return_value=Walkthrough()) as provider:
+            app = self.app()
+            self.assertEqual(app.radio(key="gemini_key_source").value, "Use the demo's key")
+            app.radio(key="source_choice").set_value("Try the example reports").run()
+            app.checkbox(key="gemini_consent").check().run()
+            app.radio(key="gemini_key_source").set_value("Use my own key").run()
+            self.assertFalse(app.checkbox(key="gemini_consent").value)
+            self.assertTrue(app.button(key="review_start").disabled)
+            app.text_input(key="visitor_key").set_value("synthetic-visitor-key").run()
+            app.checkbox(key="gemini_consent").check().run()
+            app.button(key="review_start").click().run(timeout=30)
+            self.assertFalse(app.exception)
+            provider.assert_called_once_with("synthetic-visitor-key", "gemini-3.5-flash-lite")
+            self.assertNotIn("shared_model_requests", app.session_state)
+            app.radio(key="gemini_key_source").set_value("Use the demo's key").run()
+            self.assertNotIn("review_result", app.session_state)
+            self.assertNotIn("visitor_key", app.session_state)
+            self.assertFalse(app.checkbox(key="gemini_consent").value)
+            self.assertFalse(app.text_input)
+
+    def test_clear_removes_visitor_key_and_restores_demo_default(self):
+        app = self.app()
+        app.radio(key="gemini_key_source").set_value("Use my own key").run()
+        app.text_input(key="visitor_key").set_value("synthetic-visitor-key").run()
+        app.button(key="clear_review").click().run()
+        self.assertFalse(app.exception)
+        self.assertEqual(app.radio(key="gemini_key_source").value, "Use the demo's key")
+        self.assertNotIn("visitor_key", app.session_state)
 
 
 if __name__ == "__main__":

@@ -59,6 +59,12 @@ def discard_review():
     st.session_state.pop("inspected_passage", None)
 
 
+def change_api_access():
+    discard_review()
+    st.session_state.pop("visitor_key", None)
+    st.session_state["gemini_consent"] = False
+
+
 st.markdown('<div class="eyebrow">DOCUMENT ANALYSIS</div>', unsafe_allow_html=True)
 st.title("Document Review Agent")
 st.write("Ask a question about your documents. Get findings with citations you can open and check.")
@@ -67,7 +73,7 @@ st.caption("Compare reports, check a claim, or find missing evidence.")
 def clear_workspace():
     discard_review()
     for field in list(st.session_state):
-        if field not in {"review_question", "gemini_consent", "visitor_key", "source_choice"} and not field.startswith("uploads_"):
+        if field not in {"review_question", "gemini_consent", "visitor_key", "source_choice", "gemini_key_source"} and not field.startswith("uploads_"):
             continue
         st.session_state.pop(field, None)
     st.session_state["upload_epoch"] = st.session_state.get("upload_epoch", 0) + 1
@@ -77,29 +83,35 @@ key = model = ""
 cloud_allowed = False
 server_key = secret_setting("GEMINI_API_KEY")
 shared_key = isinstance(server_key, str) and bool(server_key.strip())
+use_shared_key = shared_key
 mode = "Gemini API"
 with st.expander("Review settings", expanded=False):
     if not HOSTED:
         mode = st.selectbox("Review engine", ["Gemini API", "Local Ollama model"], on_change=discard_review)
+    if mode == "Gemini API" and shared_key:
+        key_source = st.radio("Gemini API access", ["Use the demo's key", "Use my own key"],
+                              key="gemini_key_source", on_change=change_api_access)
+        use_shared_key = key_source == "Use the demo's key"
+        st.caption("The demo key is the default. Use your own key for your own Gemini quotas and billing; it does not make uploads private.")
     budget = st.slider("Maximum model requests per review", 3, 10, 6)
     st.caption("A review stops at this limit, including the final answer request.")
     if mode == "Local Ollama model":
         model = st.text_input("Installed Ollama model", placeholder="Local model name")
-    elif not shared_key:
+    elif not use_shared_key:
         model = st.text_input("Gemini model", value="gemini-3.5-flash-lite")
 
 if mode == "Gemini API":
     st.info("Gemini review · AI findings grounded in your documents. Runs only when you choose Start review.")
     st.warning("Public preview: use public or fictional documents. Gemini receives your question, retrieved text and document metadata.")
-    if shared_key:
+    if use_shared_key:
         key = server_key.strip()
         model = secret_setting("GEMINI_MODEL", "gemini-3.5-flash-lite")
-        st.caption("Gemini is configured by the host. No API key needed; shared request limits apply.")
+        st.caption("Using the demo's Gemini key. No API key needed; shared request limits apply. For your own key, open Review settings.")
     else:
-        st.caption("A Gemini API key is needed. It is sent to this app’s server and is not saved to disk by the app.")
-        key = st.text_input("Gemini API key", type="password", key="visitor_key")
+        st.caption("Using your own Gemini key. It is sent to this app’s server, kept in session memory and not saved to disk by the app. Your Google quotas and billing apply. Clear documents and review removes the entered key from current app state.")
+        key = st.text_input("Gemini API key", type="password", key="visitor_key", on_change=discard_review)
 else:
-    st.info("Local Ollama review · Text is sent only to Ollama at 127.0.0.1 on the computer running this app. Install a model separately before reviewing.")
+    st.info("Local Ollama review · Text is sent only to Ollama at 127.0.0.1 on the computer running this app. Use an installed local model and disable Ollama cloud features separately before reviewing.")
 
 
 def change_source():
@@ -164,7 +176,7 @@ with findings_column:
                         paths.append(path)
                 corpus = Corpus.from_paths(paths)
                 provider = Gemini(key, model) if mode == "Gemini API" else Ollama(model)
-                if mode == "Gemini API" and shared_key:
+                if mode == "Gemini API" and use_shared_key:
                     provider = LimitedProvider(provider, shared_limiter(), st.session_state)
                 with st.spinner("Investigating the documents and preparing findings…"):
                     result = review(corpus, question, provider, budget)
