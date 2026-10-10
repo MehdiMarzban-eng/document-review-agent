@@ -85,7 +85,7 @@ class PaperNoteTests(unittest.TestCase):
                                      'passage_id': p['id'], 'source_name': p['source_name']}]}]}
 
     def test_unsupported_historical_claim_removed_and_original_request_kept(self):
-        provider = Provider([{'verdict': 'unsupported', 'is_cross_paper_comparison': False, 'passage_ids': [], 'issue': 'Historical theory, not the authors conclusion.'}])
+        provider = Provider([{'source_statement': 'Supplied source fact.', 'verdict': 'contradicted', 'is_cross_paper_comparison': False, 'passage_ids': [], 'issue': 'Historical theory, not the authors conclusion.'}])
         answer, trace, requests = audit_answer(self.corpus, provider, 'What is the takeaway?',
                                              self.answer('This paper proves a serial emotion circuit.'))
         self.assertEqual(answer['claims'], [])
@@ -93,21 +93,21 @@ class PaperNoteTests(unittest.TestCase):
         self.assertEqual(answer['status'], 'insufficient_evidence')
 
     def test_one_source_cannot_pass_a_cross_paper_comparison_check(self):
-        provider = Provider([{'verdict': 'supported', 'is_cross_paper_comparison': True, 'passage_ids': [self.passage['id']], 'issue': ''}])
+        provider = Provider([{'source_statement': 'Supplied source fact.', 'verdict': 'supported', 'is_cross_paper_comparison': True, 'passage_ids': [self.passage['id']], 'issue': ''}])
         answer, trace, requests = audit_answer(self.corpus, provider, 'Do these papers agree?',
                                              self.answer('The papers all agree.'))
         self.assertFalse(answer['claims'])
         self.assertIn('at least two', trace[0]['message'])
 
     def test_malformed_audit_citation_withholds_finding_without_crashing(self):
-        provider = Provider([{'verdict': 'supported', 'is_cross_paper_comparison': False,
+        provider = Provider([{'source_statement': 'Supplied source fact.', 'verdict': 'supported', 'is_cross_paper_comparison': False,
                               'passage_ids': [{}], 'issue': ''}])
         answer, trace, _ = audit_answer(self.corpus, provider, 'Main idea?', self.answer('Memory connections.'))
         self.assertFalse(answer['claims'])
         self.assertEqual(trace[0]['message'], 'Invalid finding check.')
 
     def test_supported_finding_preserves_text_resolves_page_and_counts_request(self):
-        provider = Provider([{'verdict': 'supported', 'is_cross_paper_comparison': False,
+        provider = Provider([{'source_statement': 'Supplied source fact.', 'verdict': 'supported', 'is_cross_paper_comparison': False,
             'passage_ids': [self.passage['id']], 'issue': 'Corrected emphasis.'}])
         answer, trace, requests = audit_answer(self.corpus, provider, 'What does it conclude?',
                                              self.answer('There are memory connections.'))
@@ -121,9 +121,9 @@ class PaperNoteTests(unittest.TestCase):
         plan = {'kind': 'overview', 'queries': ['parallel memory routes']}
         finding = {
             'text': 'The review describes parallel memory routes.',
-            'evidence': [{'passage_id': self.passage['id']}]}
+            'evidence': ['s2']}
         synthesis = {'status': 'answered', 'claims': [], 'unanswered_parts': []}
-        audit = {'verdict': 'supported', 'is_cross_paper_comparison': False, 'passage_ids': [self.passage['id']], 'issue': ''}
+        audit = {'source_statement': 'Supplied source fact.', 'verdict': 'supported', 'is_cross_paper_comparison': False, 'passage_ids': [self.passage['id']], 'issue': ''}
         provider = Provider([self.notes, self.notes, plan, finding, synthesis, audit, plan, finding, synthesis, audit])
         provider.understands_questions = provider.prepares_paper_notes = True
         first = review(self.corpus, 'What is the main contribution?', provider)
@@ -157,6 +157,42 @@ class PaperNoteTests(unittest.TestCase):
         self.assertFalse(answer['claims'])
         self.assertEqual(answer['unanswered_parts'], ['What does it conclude?'])
         self.assertEqual(trace[0]['message'], 'Finding check budget reached.')
+
+    def test_uncertain_model_opinion_retains_quoted_draft_with_review_flag(self):
+        answer = self.answer('Memory connections form parallel routes.')
+        answer['claims'][0]['evidence'][0]['support_quote'] = 'Reciprocal memory connections form parallel routes, not a serial loop.'
+        reply = {'source_statement': 'The source describes parallel memory connections.',
+                 'verdict': 'not_enough_information', 'is_cross_paper_comparison': False,
+                 'passage_ids': [], 'issue': 'The wording differs.'}
+        checked, trace, _ = audit_answer(self.corpus, Provider([reply]), 'Main takeaway?', answer)
+        self.assertEqual(checked['claims'][0]['text'], answer['claims'][0]['text'])
+        self.assertEqual(checked['claims'][0]['support_check'], 'needs_review')
+        self.assertFalse(checked['unanswered_parts'])
+        self.assertEqual(trace[0]['action'], 'finding_needs_review')
+
+    def test_optional_connection_rejection_does_not_invent_a_gap_in_overview(self):
+        answer = self.answer('There are memory connections.')
+        extra = copy.deepcopy(answer['claims'][0])
+        extra.update(text='An optional connection.', optional=True, cross_paper=True)
+        answer['claims'].append(extra)
+        replies = [dict(source_statement='The source describes memory connections.',
+            verdict='supported', is_cross_paper_comparison=False,
+            passage_ids=[self.passage['id']], issue=''),
+            dict(source_statement='The source does not establish the connection.',
+            verdict='contradicted', is_cross_paper_comparison=True, passage_ids=[], issue='Unsupported connection.')]
+        checked, _, _ = audit_answer(self.corpus, Provider(replies), 'Main ideas?', answer)
+        self.assertEqual(len(checked['claims']), 1)
+        self.assertFalse(checked['unanswered_parts'])
+
+    def test_local_cross_paper_marker_survives_checker_misclassification(self):
+        answer = self.answer('The papers share a finding.')
+        answer['claims'][0]['cross_paper'] = True
+        reply = dict(source_statement='The source describes memory connections.',
+            verdict='supported', is_cross_paper_comparison=False,
+            passage_ids=[self.passage['id']], issue='')
+        checked, trace, _ = audit_answer(self.corpus, Provider([reply]), 'Do they agree?', answer)
+        self.assertFalse(checked['claims'])
+        self.assertIn('at least two', trace[0]['message'])
 
 
 if __name__ == '__main__':

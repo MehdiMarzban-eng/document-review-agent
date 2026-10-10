@@ -1,5 +1,7 @@
 # Paper-workflow prototype: release gate not passed
 
+Historical report for commit 6f22ce8. The [subsequent source-selection report](source-selection-development-check-2026-10-10.md) supersedes implementation and test results below; the decision to keep v0.3.8 downloads unchanged remains current.
+
 This implementation is **unreleased**. The distributed local edition remains v0.3.8. Do not describe the new workflow as a finished solution or as available through Check for updates.
 
 ## Implementation

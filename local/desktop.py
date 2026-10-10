@@ -337,10 +337,14 @@ class ReviewWindow:
             self.status.set(result.get("clarification") or result.get("error") or
                             "Review budget reached. Try selecting one document or narrowing the question.")
             return
-        self.status.set(answer["status"].replace("_", " ").capitalize())
+        self.status.set(('Draft review' + (' · needs review' if result.get('needs_review') else ''))
+                        if result.get('answer_kind') == 'source_linked_draft'
+                        else answer["status"].replace("_", " ").capitalize())
         lines = []
         for number, claim in enumerate(answer["claims"], 1):
             lines.append(f"{number}. {claim['text']}")
+            if claim.get('support_check') == 'needs_review':
+                lines.append('Needs review: ' + claim.get('support_issue', 'Check the source passage.'))
             for citation in claim["evidence"]:
                 self.citations.append(citation)
                 label = f"[{len(self.citations)}] {citation['source_name']} · page {citation['pdf_page']}"
@@ -365,6 +369,11 @@ class ReviewWindow:
             lines += ["", "Final answer check was unavailable. Check the cited passages."]
         if result.get("claim_check") == "findings_removed":
             lines += ["", "Some findings could not be verified against their source pages and were removed."]
+        incomplete = [p for p in result.get('paper_results', []) if p['state'] != 'answered']
+        if incomplete:
+            lines += ['', 'Paper summaries unavailable:']
+            lines += [f"{p['source_name']} — " + ('summary not verified' if p['state'] == 'unverified_claim'
+                       else 'no relevant passage selected') for p in incomplete]
         self.set_text(self.findings, "\n".join(lines))
         if self.citations:
             self.sources.selection_set(0)
@@ -373,7 +382,11 @@ class ReviewWindow:
     def inspect(self, event=None):
         selected = self.sources.curselection()
         if selected and selected[0] < len(self.citations):
-            self.set_text(self.passage, self.citations[selected[0]]["passage_text"])
+            citation = self.citations[selected[0]]
+            text = citation['passage_text']
+            if citation.get('support_quote'):
+                text = 'Quoted evidence\n' + '\n\n'.join(citation.get('support_quotes', [citation['support_quote']])) + '\n\nFull passage\n' + text
+            self.set_text(self.passage, text)
 
     def save_review(self):
         if self.result:
