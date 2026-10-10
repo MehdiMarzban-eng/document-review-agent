@@ -1,28 +1,23 @@
 <!doctype html>
 <html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Document Review · Local edition</title>
+<title>Document Review Agent - Local setup</title>
 <style>
-body{background:#f6f8fc;color:#17243b;font:18px/1.6 system-ui,sans-serif;margin:0;padding:36px 20px}main{max-width:700px;margin:auto}section{background:white;padding:32px;border:1px solid #d6dfed;border-radius:16px}h1{font-size:32px;line-height:1.2}button,a.open{background:#2861c9;color:white;font:inherit;padding:14px 22px;border:0;border-radius:8px;cursor:pointer;display:inline-block;text-decoration:none}button:disabled{opacity:.5;cursor:wait}progress{width:100%;height:24px}small{display:block;color:#52627a;margin:16px 0}.secondary{background:#eaf0fa;color:#17243b;margin-top:16px}#error{color:#a32020}label{display:block;margin:20px 0}input{width:20px;height:20px;margin-right:8px}[hidden]{display:none!important}
-</style><main><p>DOCUMENT REVIEW · LOCAL EDITION PREVIEW</p><section>
-<h1>Your documents. Your computer.</h1>
-<p>Review documents in your usual browser, with the AI running on this computer. No API key needed.</p>
-<div id="intro"><p>First-time setup prepares everything for you. Keep this page open while the AI engine and model download.</p>
-<small>Allow several GB of downloads and at least 14 GB free disk space. Setup time depends on your connection. A computer with 16 GB RAM is recommended; performance varies. Once installed, reviews can run offline.</small>
-<label><input id="consent" type="checkbox">Download the AI engine and model from their official sources.</label>
-<small>Preview: test with fictional documents first. Local processing does not guarantee confidentiality or answer accuracy. Setup contacts GitHub and Ollama's model registry; documents are not involved in setup.</small>
-<button id="begin" disabled>Set up on this computer</button></div>
+body{background:#f6f8fc;color:#17243b;font:17px/1.5 system-ui,sans-serif;margin:0;padding:48px 24px}main{max-width:540px;margin:auto}section{background:white;padding:32px;border:1px solid #d6dfed;border-radius:14px}h1{font-size:26px;line-height:1.25;margin:0 0 8px}p{margin:12px 0 20px}button,a.open{background:#2861c9;color:white;font:inherit;padding:12px 20px;border:0;border-radius:7px;cursor:pointer;display:inline-block;text-decoration:none}button:disabled{opacity:.5;cursor:wait}progress{width:100%;height:20px}.secondary{background:transparent;color:#52627a;padding-left:12px}details{color:#52627a;font-size:14px;margin:22px 0 0}summary{cursor:pointer}#error{color:#a32020}[hidden]{display:none!important}
+</style><main><section>
+<h1>Document Review Agent</h1>
+<p id="intro">Local setup · Download AI dependencies.</p>
+<button id="begin">Download and install</button>
 <div id="progress" hidden><progress id="bar" max="100" value="0"></progress><p id="message" role="status" aria-live="polite"></p><p id="error" role="alert"></p></div>
-<a class="open" id="open" hidden>Open Document Review</a>
-<button class="secondary" id="stop">Close local edition</button>
-<small>Keep this launcher open while reviewing. Closing a browser tab alone does not stop the local services; use Close local edition when finished.</small>
+<a class="open" id="open" hidden>Open app</a>
+<button class="secondary" id="stop">Close</button>
+<details><summary>Details</summary><p>First setup downloads several GB. Allow 14 GB free disk space; 16 GB RAM is recommended. Downloads come from GitHub and Ollama. After setup, reviews can run offline.</p><p>Preview: test with sample documents first. Local processing does not guarantee confidentiality or correct answers.</p></details>
 </section></main><script>
 const token='__TOKEN__';const $=id=>document.getElementById(id);
-$('consent').onchange=()=>{$('begin').disabled=!$('consent').checked};
 async function post(path){return fetch(path,{method:'POST',headers:{'X-Setup-Token':token}})}
 $('begin').onclick=async()=>{$('begin').disabled=true;await post('/setup')};
-$('stop').onclick=async()=>{await post('/stop');document.querySelector('section').innerHTML='<h1>Local edition closed</h1><p>Your documents remain on your computer. You can close this page.</p>'};
-async function poll(){try{const s=await(await fetch('/status')).json();if(s.status==='welcome'&&s.message.startsWith('Welcome back')){$('intro').querySelector('p').textContent=s.message;$('consent').parentElement.hidden=true;$('consent').checked=true;$('begin').disabled=false;$('begin').textContent='Open local edition'}
-if(s.status!=='welcome'){$('progress').hidden=false;$('intro').hidden=s.status!=='error';$('message').textContent=s.message;$('bar').value=s.progress;$('error').textContent=s.status==='error'?'Please retry setup. If the problem continues, share this message with the person who provided the app.':'';if(s.status==='error'){$('begin').disabled=!$('consent').checked;$('begin').textContent='Try again'}}
+$('stop').onclick=async()=>{await post('/stop');document.querySelector('section').innerHTML='<h1>App closed</h1>'};
+async function poll(){try{const s=await(await fetch('/status')).json();if(s.status==='welcome'&&s.installed){$('intro').textContent='Local edition · Ready to open.';$('begin').textContent='Open app'}
+if(s.status!=='welcome'){$('progress').hidden=false;$('begin').hidden=s.status!=='error';$('intro').hidden=true;$('message').textContent=s.message;$('bar').value=s.progress;$('error').textContent=s.status==='error'?'Please try again.':'';if(s.status==='error'){$('begin').disabled=false;$('begin').textContent='Retry'}}
 if(s.status==='ready'){$('open').hidden=false;$('open').href=s.app_url}}
-catch(e){}setTimeout(poll,1000)}poll();
+catch(e){}setTimeout(poll,750)}poll();
 </script></html>

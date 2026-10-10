@@ -14,6 +14,15 @@ spec.loader.exec_module(launcher)
 
 
 class LocalTests(unittest.TestCase):
+    def test_desktop_restricts_web_content_to_its_own_loopback_ports(self):
+        spec = importlib.util.spec_from_file_location("local_desktop", ROOT / "local" / "desktop.py")
+        desktop = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(desktop)
+        self.assertTrue(desktop.is_local_url("http://127.0.0.1:8520/status", {8520}))
+        self.assertTrue(desktop.is_local_url("ws://127.0.0.1:8520/_stcore/stream", {8520}))
+        for url in ("https://google.com/", "http://127.0.0.1:1234", "http://127.0.0.1.evil.test:8520", "file:///private/document", "http://127.0.0.1:invalid"):
+            self.assertFalse(desktop.is_local_url(url, {8520}))
+
     def test_private_environment_does_not_inherit_cloud_credentials_or_proxies(self):
         with patch.dict("os.environ", {"GEMINI_API_KEY": "fake", "OLLAMA_HOST": "remote", "HTTPS_PROXY": "remote", "DOCUMENT_REVIEW_HOSTED": "1"}):
             env = launcher.private_environment(Path("private-data"))

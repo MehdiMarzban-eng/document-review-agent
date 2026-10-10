@@ -28,6 +28,21 @@ jobs:
       - run: python -m pip install -r requirements.txt
       - run: python -m unittest discover -s tests -v
       - run: python local/build_package.py ${{ matrix.platform }}
+      - name: Desktop smoke (Windows)
+        if: runner.os == 'Windows'
+        timeout-minutes: 3
+        run: '& "./dist/Document Review Local/python/python.exe" local/desktop_smoke.py "./dist/Document Review Local"'
+      - name: Desktop smoke (Mac)
+        if: runner.os == 'macOS'
+        timeout-minutes: 3
+        run: '"./dist/Document Review Local/python/bin/python3" local/desktop_smoke.py "./dist/Document Review Local"'
+      - name: Desktop libraries (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libxcb-cursor0 libxkbcommon-x11-0 libegl1
+      - name: Desktop smoke (Linux)
+        if: runner.os == 'Linux'
+        timeout-minutes: 3
+        run: 'xvfb-run -a "./dist/Document Review Local/python/bin/python3" local/desktop_smoke.py "./dist/Document Review Local"'
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.platform }}
@@ -35,6 +50,9 @@ jobs:
             dist/Document-Review-*.zip
             dist/Document-Review-*.tar.gz
             dist/Document-Review-*.sha256
+            dist/Document-Review-Setup.exe
+            dist/Document-Review-Setup.dmg
+            dist/Document-Review-Setup.sh
           if-no-files-found: error
           retention-days: 7
   release:
@@ -54,4 +72,4 @@ jobs:
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          gh release create "$RELEASE_TAG" packages/* --prerelease --title "Local edition preview" --notes "Windows, Mac (Apple silicon and Intel), and Linux x64 packages include the app and a private Python runtime. Guided first-time setup downloads Ollama and qwen2.5:7b. These are unsigned preview builds. Packaging/import tests are not end-to-end model or confidentiality validation. Test with fictional documents first. See docs/local-edition.md for instructions and limitations."
+          gh release create "$RELEASE_TAG" packages/* --prerelease --title "Local desktop edition preview" --notes "Small Windows EXE, Mac DMG and Linux shell launchers download the full desktop dependencies. The app opens in its own window on all three platforms. Guided first-time setup downloads Ollama and qwen2.5:7b. These are unsigned previews; packaging checks are not end-to-end model or confidentiality validation. See docs/local-edition.md."

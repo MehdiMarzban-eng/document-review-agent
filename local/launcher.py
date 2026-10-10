@@ -16,13 +16,13 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.request import Request, urlopen
-import webbrowser
 import zipfile
 
 ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT))
 MODEL = "qwen2.5:7b"
 TOKEN = secrets.token_urlsafe(32)
-STATE = {"status": "welcome", "message": "Ready to set up your local edition.", "progress": 0}
+STATE = {"status": "welcome", "message": "Ready", "progress": 0, "installed": False}
 CHILDREN = []
 LOCK = threading.Lock()
 DATA = None
@@ -159,7 +159,7 @@ def start_app(env):
         try:
             with urlopen(APP_URL + "/_stcore/health", timeout=2) as response:
                 if response.status == 200:
-                    update("ready", "Your local edition is ready. You can disconnect from the internet before opening documents.", 100)
+                    update("ready", "Ready", 100)
                     return
         except OSError:
             time.sleep(.5)
@@ -246,6 +246,7 @@ class Handler(BaseHTTPRequestHandler):
             threading.Thread(target=setup, daemon=True).start()
             return self.reply(b'{}')
         if self.path == "/stop":
+            update("closed", "Closed")
             threading.Thread(target=self.server.shutdown, daemon=True).start()
             return self.reply(b'{}')
         self.reply(b'{}', code=404)
@@ -261,12 +262,14 @@ def main():
     else:
         DATA = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share")) / "document-review-local"
     if (DATA / "setup-complete.json").exists():
-        STATE.update(message="Welcome back. Open your local edition without downloading anything.")
+        STATE.update(installed=True)
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-    webbrowser.open(f"http://127.0.0.1:{server.server_port}")
+    threading.Thread(target=server.serve_forever, daemon=True).start()
     try:
-        server.serve_forever()
+        from desktop import run_window
+        run_window(server)
     finally:
+        server.shutdown()
         stop_children()
         server.server_close()
 

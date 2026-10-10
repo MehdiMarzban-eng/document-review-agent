@@ -1,39 +1,41 @@
-# Local edition — preview
+# Local desktop edition - preview
 
-The local edition is intended to keep the familiar browser interface while removing Python installation, API keys and model-setting choices. Windows x64, Mac Apple silicon/Intel and Linux x64 builds are prepared by the `Local edition packages` workflow. ARM Windows/Linux builds are not included.
+The app opens in its own window on Windows, Mac and Linux. No separate Python installation or API key is needed.
 
-[Download preview packages](https://github.com/MehdiMarzban-eng/document-review-agent/releases/tag/local-preview-v0.1.0). Published October 9, 2026: all four platform jobs passed the 25-test suite, bundled-runtime imports and dependency checks. The Windows setup welcome/close screens were browser-checked locally. No full Ollama/model installation or real inference was run in this release check; Mac/Linux user installation and offline end-to-end behavior remain unverified.
+## Install
 
-## Using the download
+- **Windows x64:** run `Document-Review-Setup.exe`, then choose Install. A desktop shortcut is created when permitted.
+- **Mac (Apple silicon or Intel):** open `Document-Review-Setup.dmg`, drag the app to Applications, then open it and choose Install. The correct architecture downloads automatically. macOS 14 or newer is required by the desktop toolkit.
+- **Linux x64:** run `Document-Review-Setup.sh` in a terminal (`sh Document-Review-Setup.sh`). A graphical desktop with glibc 2.34+ and Qt/X11 dependencies is required. On Debian/Ubuntu, missing `libxcb-cursor0`, `libxkbcommon-x11-0` or `libegl1` must be installed through the system package manager. The script does not request root access or change system packages.
 
-1. Download the package for your operating system and extract the entire archive.
-2. Open **Start Document Review** in the extracted folder. The extension is `.cmd` on Windows, `.command` on Mac and `.sh` on Linux. Linux file-manager behavior varies; shell-script launch permissions may require assistance.
-3. Your browser opens a guided setup. Approve the first-time engine/model download and wait for the progress screen to finish. Then choose **Open Document Review**.
+The small launcher downloads the app/runtime first. The app then shows **Local setup - Download AI dependencies**. Choose **Download and install** to prepare Ollama and the preselected model. Existing model installations are reused. Closing the app window stops the local services.
 
-Subsequent launches reuse the installed model and can run offline. Keep the launcher page open during reviews; choose **Close local edition** when finished. Closing a browser tab alone does not stop the services.
+The initial Windows installer is approximately 14 KB. This shifts the larger downloads into setup; it does not reduce the total runtime/model storage. Allow several GB of downloads, at least 14 GB free disk space for model preparation, and preferably 16 GB RAM. Speed varies.
 
-The package includes a private Python runtime and app dependencies. First setup downloads a checksum-pinned Ollama release from its official GitHub repository and the preselected `qwen2.5:7b` model from Ollama's registry. The engine is roughly 0.2–1.5 GB depending on the platform; the model is approximately 4.7 GB. Allow at least 14 GB free disk space during setup; 16 GB RAM is recommended as a starting point, not a performance guarantee. CPU operation can be slow. Internet is required for first setup; no document upload is part of setup. Model quality has not yet been validated for this edition.
+## Preview status
 
-## Preview limitations
+Launchers are unsigned; OS/institution policy can block them. Do not disable security protections. Mac notarization, Windows signing, Linux installation polish and representative-machine testing remain release work. Download availability does not establish confidential-use readiness.
 
-These downloads are **unsigned previews**, not polished signed installers. OS security controls or institutional policy may block them; do not disable protections. Mac notarization, Windows signing, desktop shortcuts, OS-specific installation assistance and end-to-end testing on representative machines remain release work. Do not describe these builds as a one-click production installation or as verified safe for confidential research. Start with fictional documents.
+The preceding v0.1.0 archive release remains available for reference. It opened a browser launcher; v0.2.0 replaces it with lightweight launchers and a dedicated Qt desktop window. See the GitHub prerelease for the current assets and exact build status.
 
-## Data and network boundaries
+## Data boundaries
 
-The launcher starts its own Ollama process on loopback port 11435, with cloud features disabled and a separate model directory. It refuses an occupied port rather than connecting to an unknown existing model server. The review app binds to loopback, disables Streamlit usage telemetry and forces local-only mode: there is no Gemini selector or cloud fallback. The current browser interface keeps temporary uploads/reviews in local process memory and creates temporary extraction files. Citations/exports contain source excerpts. Operating-system accounts, disk encryption, dependencies and malicious documents still require assessment. Local operation alone is not a confidentiality guarantee.
+The app and Ollama use loopback only. This launcher starts its own model process on port 11435, disables Ollama cloud features, uses a separate model directory, and forces local-only review with no Gemini option. The desktop view uses an in-memory web profile and blocks external web requests. This is an embedded web interface inside a native window; the review engine still runs locally.
 
-The setup page has no document-upload facility. Setup contacts GitHub and Ollama's registry only after an explicit setup action. A fresh model tag is retrieved from the registry during first setup and then reused; this is not a fully pinned/reproducible model distribution. Verify offline behavior and model quality before relying on a deployment. The full engine and model are not embedded in the initial download.
+Setup explicitly downloads pinned/checksummed runtime and engine releases from GitHub, plus `qwen2.5:7b` from Ollama's registry. The model tag is not an immutable pinned distribution. Windows embeds the payload checksum in the installer; Mac/Linux retrieve the checksum sidecar over HTTPS from the same release. None of these checks replaces publisher code signing.
 
-## Removing the local edition
+No document is involved in setup. Review files and excerpts remain in local process memory, with temporary extraction files removed on normal exits. Exports contain source excerpts. Device security, disk encryption, malicious documents and deletion behavior still need assessment. Local processing is not a confidentiality guarantee. Verify offline operation and actual answer quality using fictional documents before sensitive work.
 
-Close the local edition first. Remove the extracted package when no longer needed. Downloaded engine/models remain in the per-user data folder until you remove it yourself:
+## Removal
+
+Close the app first. Remove the downloaded launcher and its installed per-user data folder when no longer needed:
 
 - Windows: `%LOCALAPPDATA%\DocumentReviewLocal`
 - Mac: `~/Library/Application Support/DocumentReviewLocal`
 - Linux: `$XDG_DATA_HOME/document-review-local`, or `~/.local/share/document-review-local` if unset.
 
-This is ordinary file deletion, not secure erasure. Exports saved elsewhere remain separate.
+Exports saved elsewhere remain separate. Ordinary deletion is not secure erasure. The installer does not delete existing models or documents during an update.
 
 ## Sources and licenses
 
-Python runtime: [Astral python-build-standalone](https://github.com/astral-sh/python-build-standalone); runtime license files remain in the distribution. Dependencies retain installed license metadata. Ollama binaries retain their bundled license files; [Ollama license](https://github.com/ollama/ollama/blob/main/LICENSE). The downloaded [Qwen2.5 7B model](https://ollama.com/library/qwen2.5:7b) uses Apache 2.0; this differs from the 3B and 72B variants. Application reuse provenance is in `ORIGIN.json` and the project README. Packaging does not establish independent authorship or audit the bundled components.
+Python: [python-build-standalone](https://github.com/astral-sh/python-build-standalone). Desktop window: [Qt for Python](https://doc.qt.io/qtforpython-6/), dynamically loaded under its applicable open-source licenses; license files remain in the dependency distribution. [Ollama](https://github.com/ollama/ollama/blob/main/LICENSE) and [Qwen2.5 7B](https://ollama.com/library/qwen2.5:7b) retain their licenses. Application reuse provenance is in ORIGIN.json and README. Packaging does not establish independent authorship or security certification.

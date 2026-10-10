@@ -2,6 +2,7 @@
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -14,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def build(platform):
     asset = json.loads((ROOT / "local" / "downloads.json").read_text())[platform]["python"]
-    out = ROOT / "dist"
+    out = Path(os.environ.get("DOCUMENT_REVIEW_DIST", ROOT / "dist"))
     out.mkdir(exist_ok=True)
     folder = out / "Document Review Local"
     folder.mkdir()
@@ -25,14 +26,14 @@ def build(platform):
     with tarfile.open(archive) as runtime:
         runtime.extractall(folder, filter="data")
     executable = folder / "python" / ("python.exe" if platform == "windows-x64" else "bin/python3")
-    subprocess.run([str(executable), "-m", "pip", "install", "--disable-pip-version-check", "-r", str(ROOT / "requirements.txt"), "zstandard==0.25.0"], check=True)
+    subprocess.run([str(executable), "-m", "pip", "install", "--disable-pip-version-check", "-r", str(ROOT / "requirements.txt"), "zstandard==0.25.0", "PySide6==6.12.0"], check=True)
     app = folder / "app"
     app.mkdir()
     for source in ROOT.glob("*.py"):
         shutil.copy2(source, app / source.name)
     shutil.copytree(ROOT / "samples", app / "samples")
     shutil.copytree(ROOT / "docs", app / "docs")
-    for name in ("launcher.py", "setup.html", "downloads.json"):
+    for name in ("launcher.py", "desktop.py", "setup.html", "downloads.json"):
         shutil.copy2(ROOT / "local" / name, folder / name)
     (folder / "platform.txt").write_text(platform)
     (folder / "START HERE.txt").write_text(
@@ -54,7 +55,7 @@ def build(platform):
         starter.write_text('#!/bin/sh\ncd "$(dirname "$0")" || exit 1\nexec ./python/bin/python3 ./launcher.py\n')
         starter.chmod(0o755)
     # Verify the actual bundled runtime and dependencies, not just the build host.
-    subprocess.run([str(executable), "-c", "import streamlit, langgraph, pypdf, zstandard; print('Bundled runtime imports passed')"], check=True)
+    subprocess.run([str(executable), "-c", "import streamlit, langgraph, pypdf, zstandard; from PySide6.QtWebEngineWidgets import QWebEngineView; print('Bundled desktop/runtime imports passed')"], check=True)
     subprocess.run([str(executable), "-m", "pip", "check"], check=True)
     # Runtime licenses remain in the bundle; archive also includes project provenance.
     shutil.copy2(ROOT / "ORIGIN.json", app / "ORIGIN.json")
@@ -69,7 +70,51 @@ def build(platform):
         with tarfile.open(target, "w:gz") as package:
             package.add(folder, arcname=folder.name)
     (out / (target.name + ".sha256")).write_text(hashlib.sha256(target.read_bytes()).hexdigest() + "  " + target.name + "\n")
+    build_installer(platform, out, target)
     print(target)
+
+
+def build_installer(platform, out, payload):
+    version = os.environ.get("GITHUB_REF_NAME", "local-preview-v0.2.0")
+    if not version.startswith("local-preview-"):
+        version = "local-preview-v0.2.0"
+    if platform == "windows-x64":
+        manifest = out / "install.json"
+        manifest.write_text(json.dumps({"version": version,
+            "url": f"https://github.com/MehdiMarzban-eng/document-review-agent/releases/download/{version}/{payload.name}",
+            "sha256": hashlib.sha256(payload.read_bytes()).hexdigest()}))
+        compiler = Path(os.environ["WINDIR"]) / "Microsoft.NET" / "Framework64" / "v4.0.30319" / "csc.exe"
+        references = ["System.Windows.Forms", "System.Drawing", "System.IO.Compression", "System.IO.Compression.FileSystem", "System.Web.Extensions", "Microsoft.CSharp"]
+        subprocess.run([str(compiler), "/nologo", "/target:winexe",
+            f"/out:{out / 'Document-Review-Setup.exe'}", f"/resource:{manifest},install.json",
+            *[f"/reference:{name}.dll" for name in references], str(ROOT / "local" / "windows_setup.cs")], check=True)
+    elif platform in ("mac-arm64", "linux-x64"):
+        script = (ROOT / "local" / "bootstrap.sh").read_text().replace("__VERSION__", version)
+        if platform == "linux-x64":
+            starter = out / "Document-Review-Setup.sh"
+            starter.write_text(script)
+            starter.chmod(0o755)
+        else:
+            stage = out / "mac-installer"
+            stage.mkdir()
+            application = stage / "Document Review Agent.app"
+            applescript = out / "setup.applescript"
+            applescript.write_text('''on run
+    display dialog "Download app dependencies?" with title "Document Review Agent" buttons {"Cancel", "Install"} default button "Install"
+    set progress total steps to -1
+    set progress description to "Downloading app dependencies..."
+    set scriptFile to POSIX path of (path to resource "bootstrap.sh")
+    try
+        do shell script "DOCUMENT_REVIEW_DETACH=1 /bin/sh " & quoted form of scriptFile
+    on error messageText
+        display dialog messageText with title "Setup failed" buttons {"OK"} default button "OK"
+    end try
+end run
+''')
+            subprocess.run(["osacompile", "-o", str(application), str(applescript)], check=True)
+            (application / "Contents" / "Resources" / "bootstrap.sh").write_text(script)
+            (stage / "Applications").symlink_to("/Applications", target_is_directory=True)
+            subprocess.run(["hdiutil", "create", "-volname", "Document Review Agent", "-srcfolder", str(stage), "-format", "UDZO", str(out / "Document-Review-Setup.dmg")], check=True)
 
 
 if __name__ == "__main__":

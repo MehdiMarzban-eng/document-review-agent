@@ -8,3 +8,4 @@ results/
 *.pdf
 .test-tmp/
 dist/
+output/pdf/
