@@ -13,7 +13,7 @@ successfully as documented in `docs/live-check-2026-10-07.md`. Eighteen local te
 This supersedes the earlier absence of live Gemini examples, but is not a general benchmark.
 
 Deploy on Streamlit Community Cloud using Python 3.12, branch `main`, entry point `cloud_app.py`.
-No key is needed for the scripted walkthrough. Optional Streamlit Secrets for shared Gemini access:
+The web UI defaults to Gemini; it requires a host or visitor API key and explicit consent. The scripted no-model walkthrough remains CLI-only. Optional Streamlit Secrets for shared Gemini access:
 
 ```toml
 GEMINI_API_KEY = "your-key"
@@ -35,3 +35,5 @@ the original fixed retrieval pipeline remain to be measured. Synthetic tests ver
 application, not factual reliability of model-generated reviews.
 
 See https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/deploy.
+
+October 9 UI update: removed the sidebar and scripted web mode. Gemini defaults to an upload-first three-step flow; fictional reports are an optional explained example. Current-session clear control added. This does not make the preview suitable for private research. See docs/privacy-and-security.md.

@@ -9,7 +9,7 @@ This is a separate evolution of [Document Evidence Assistant](https://document-e
 
 ## Example
 
-Compare two evaluation reports: which model has lower error, which has lower latency, and do either establish robustness or deployment? The bundled fictional reports illustrate those distinctions. Real model mode chooses tool actions based on retrieved evidence. The default offline walkthrough follows a script and is not an AI quality demonstration.
+Compare two evaluation reports: which model has lower error, which has lower latency, and do either establish robustness or deployment? The bundled fictional reports illustrate those distinctions. Real model mode chooses tool actions based on retrieved evidence. The web app defaults to Gemini and has an optional example using these reports. The scripted no-model walkthrough is available only through the CLI; it is not an AI quality demonstration.
 
 ## Architecture
 
@@ -38,7 +38,15 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m streamlit run app.py --server.address 127.0.0.1
 ```
 
-Open the local URL printed by Streamlit. Select **Offline walkthrough** and click **Review documents** for a no-key, no-model run. CLI equivalent:
+Open the local URL printed by Streamlit. The web app opens in **Gemini review**:
+
+1. Upload public/non-confidential documents, or choose **Try the example reports** to use two fictional reports with an explained comparison question.
+2. Enter a question. Configure a Gemini key if the host has not provided one, and consent to sending text and metadata to Google.
+3. Choose **Start review with Gemini**. Read the findings and click a citation to inspect its source passage. Clear documents and review when finished.
+
+No model request is sent automatically. Local Ollama is under **Review settings** in local installations. The public preview is not suitable for confidential research; see [privacy and security boundaries](docs/privacy-and-security.md).
+
+For the scripted no-key, no-model example, use the CLI:
 
 ```powershell
 .\.venv\Scripts\python.exe review_documents.py
@@ -55,7 +63,7 @@ CLI real-model example (prompts for the key; never put keys in command arguments
 .\.venv\Scripts\python.exe review_documents.py samples/report-a.md samples/report-b.md --provider gemini --model gemini-3.5-flash-lite
 ```
 
-The UI accepts at most eight documents, 20 MB per document, 300 pages and 2,000 passages per document. Uploaded temporary files are removed after review. Evidence and results remain in the browser session; exported JSON contains source excerpts. TXT/MD files have a single logical page. PDF citations include physical PDF pages and metadata labels.
+The UI accepts at most eight documents, 20 MB per document, 300 pages and 2,000 passages per document. Uploaded temporary working files are removed after review; upload buffers and review data remain in the app session on the server until cleared or the session ends. Clear resets current app state, not provider copies or secure-erasure guarantees; exported JSON contains source excerpts. TXT/MD files have a single logical page. PDF citations include physical PDF pages and metadata labels.
 
 ## Validation
 
@@ -69,7 +77,7 @@ Tests exercise the actual LangGraph with scripted provider responses, synthetic 
 
 Before claiming the agent improves the original pipeline, compare both on the same questions, model, and documents. Reserve independently authored questions before tuning. Score claim support manually against sources, citation correctness, unsupported-question abstention, conflict detection, requests, latency, and provider token usage when available. Include questions answerable by one search and cases requiring further investigation. An agent may increase cost without improving easy questions.
 
-The bundled examples are development fixtures. Three [live Gemini development checks](docs/live-check-2026-10-07.md) verified a cited comparison, a negative answer about undeployed models, and abstention on missing hardware details. These are manually reviewed examples, not a held-out quality benchmark. The app records elapsed time and request count, not monetary cost or token totals.
+The bundled examples are development fixtures. Four [live Gemini development checks](docs/live-check-2026-10-07.md) verified a cited comparison, a negative answer about undeployed models, and abstention on missing hardware details. These are manually reviewed examples, not a held-out quality benchmark. The app records elapsed time and request count, not monetary cost or token totals.
 
 ## Limitations
 

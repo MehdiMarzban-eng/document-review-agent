@@ -6,7 +6,7 @@ import tempfile
 import streamlit as st
 from agent import review
 from corpus import Corpus
-from demo import DEMO_QUESTION, Walkthrough
+from demo import DEMO_QUESTION
 from providers import Gemini, Ollama
 from shared_access import RequestLimiter, LimitedProvider
 
@@ -24,7 +24,7 @@ def shared_limiter():
 
 ROOT = Path(__file__).parent
 HOSTED = os.environ.get("DOCUMENT_REVIEW_HOSTED") == "1"
-st.set_page_config(page_title="Document Review Agent", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Document Review Agent", layout="wide", initial_sidebar_state="collapsed")
 st.markdown("""
 <style>
 .stApp {background:#f6f8fc; color:#17243b;}
@@ -35,11 +35,7 @@ st.markdown("""
 [data-testid="stMain"] button {background:#ffffff; color:#17243b; border:1px solid #d6dfed;}
 [data-testid="stMain"] button[kind="primary"] {background:#2861c9; border-color:#2861c9; color:white;}
 [data-testid="stMain"] button[kind="primary"] p {color:white;}
-[data-testid="stSidebar"] {background:#142239; color:#e8eef8;}
-[data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3,
-[data-testid="stSidebar"] p, [data-testid="stSidebar"] label,
-[data-testid="stSidebar"] [data-testid="stCaptionContainer"] {color:#e8eef8;}
-[data-testid="stSidebar"] [data-testid="stExpander"] {border-color:#42516a;}
+[data-testid="stSidebar"], [data-testid="stSidebarCollapsedControl"] {display:none;}
 h1 {font-size:2.1rem !important; letter-spacing:-.06rem;}
 h2 {font-size:1.3rem !important;}
 h3 {font-size:1.05rem !important;}
@@ -58,72 +54,93 @@ div[class*="st-key-finding_card_"]
 </style>
 """, unsafe_allow_html=True)
 
-uploads = []
-key = model = ""
-cloud_allowed = False
-use_samples = True
-server_key = secret_setting("GEMINI_API_KEY")
-shared_key = isinstance(server_key, str) and bool(server_key.strip())
-with st.sidebar:
-    st.markdown("### Review workspace")
-    st.caption("DOCUMENT LIBRARY")
-    modes = ["Offline walkthrough", "Gemini API"] if HOSTED else ["Offline walkthrough", "Local Ollama model", "Gemini API"]
-    mode = st.selectbox("Review mode", modes)
-    if HOSTED:
-        st.caption("Public demo. Files are processed on the hosting server. Use public or fictional documents, not confidential material.")
-    if mode != "Offline walkthrough":
-        uploads = st.file_uploader("Add documents", type=["pdf", "txt", "md"], accept_multiple_files=True)
-        st.caption("Up to 8 files · 20 MB each · readable PDF, TXT or MD")
-        use_samples = st.checkbox("Use the fictional sample reports", value=not bool(uploads))
-    if mode == "Offline walkthrough" or use_samples:
-        st.caption("2 SAMPLE DOCUMENTS")
-        for path in sorted((ROOT / "samples").glob("*.md")):
-            with st.expander(path.name):
-                st.text(path.read_text(encoding="utf-8"))
-    else:
-        st.caption(f"{len(uploads)} DOCUMENTS SELECTED")
-        for upload in uploads:
-            st.write(upload.name)
-            st.caption(f"{upload.size / 1024:.0f} KB")
-        if not uploads:
-            st.caption("Add documents to begin your review.")
-    st.divider()
-    if mode == "Gemini API":
-        st.caption("Retrieved text and your question go to Google. Free-tier content may be used to improve its products; billing and quotas determine cost.")
-        if shared_key:
-            key = server_key.strip()
-            model = secret_setting("GEMINI_MODEL", "gemini-3.5-flash-lite")
-            st.caption("Gemini is configured by the host. Shared access has request limits.")
-            st.caption("Model: " + str(model))
-        elif HOSTED:
-            st.caption("Your key is sent to this app's server to call Gemini. It is not saved to disk. Use a key you are comfortable entrusting to this host.")
-        if not shared_key:
-            key = st.text_input("Gemini API key", type="password")
-            model = st.text_input("Gemini model", value="gemini-3.5-flash-lite")
-        cloud_allowed = st.checkbox("Send retrieved text to Gemini", key="gemini_consent")
-    elif mode == "Local Ollama model":
-        model = st.text_input("Installed Ollama model", placeholder="Local model name")
-        st.caption("Uses your local Ollama server. No models are downloaded by this app.")
-    with st.expander("Review settings"):
-        budget = st.slider("Maximum model requests per review", 3, 10, 6)
-        st.caption("Includes the final answer. Reviews stop at their request budget.")
-    st.caption("Evolved from Document Evidence Assistant")
+def discard_review():
+    st.session_state.pop("review_result", None)
+    st.session_state.pop("inspected_passage", None)
+
 
 st.markdown('<div class="eyebrow">DOCUMENT ANALYSIS</div>', unsafe_allow_html=True)
 st.title("Document Review Agent")
-st.caption("Compare findings, identify gaps, and follow each conclusion back to its source.")
+st.write("Ask a question about your documents. Get findings with citations you can open and check.")
+st.caption("Compare reports, check a claim, or find missing evidence.")
+
+def clear_workspace():
+    discard_review()
+    for field in list(st.session_state):
+        if field not in {"review_question", "gemini_consent", "visitor_key", "source_choice"} and not field.startswith("uploads_"):
+            continue
+        st.session_state.pop(field, None)
+    st.session_state["upload_epoch"] = st.session_state.get("upload_epoch", 0) + 1
+
+uploads = []
+key = model = ""
+cloud_allowed = False
+server_key = secret_setting("GEMINI_API_KEY")
+shared_key = isinstance(server_key, str) and bool(server_key.strip())
+mode = "Gemini API"
+with st.expander("Review settings", expanded=False):
+    if not HOSTED:
+        mode = st.selectbox("Review engine", ["Gemini API", "Local Ollama model"], on_change=discard_review)
+    budget = st.slider("Maximum model requests per review", 3, 10, 6)
+    st.caption("A review stops at this limit, including the final answer request.")
+    if mode == "Local Ollama model":
+        model = st.text_input("Installed Ollama model", placeholder="Local model name")
+    elif not shared_key:
+        model = st.text_input("Gemini model", value="gemini-3.5-flash-lite")
+
+if mode == "Gemini API":
+    st.info("Gemini review · AI findings grounded in your documents. Runs only when you choose Start review.")
+    st.warning("Public preview: use public or fictional documents. Gemini receives your question, retrieved text and document metadata.")
+    if shared_key:
+        key = server_key.strip()
+        model = secret_setting("GEMINI_MODEL", "gemini-3.5-flash-lite")
+        st.caption("Gemini is configured by the host. No API key needed; shared request limits apply.")
+    else:
+        st.caption("A Gemini API key is needed. It is sent to this app’s server and is not saved to disk by the app.")
+        key = st.text_input("Gemini API key", type="password", key="visitor_key")
+else:
+    st.info("Local Ollama review · Text is sent only to Ollama at 127.0.0.1 on the computer running this app. Install a model separately before reviewing.")
+
+
+def change_source():
+    discard_review()
+    st.session_state["review_question"] = DEMO_QUESTION if st.session_state["source_choice"] == "Try the example reports" else ""
+
+
+st.subheader("1. Choose your documents")
+source_choice = st.radio("Document source", ["Upload my documents", "Try the example reports"], horizontal=True,
+                         key="source_choice", on_change=change_source)
+use_samples = source_choice == "Try the example reports"
+if use_samples:
+    st.write("These are two fictional model-evaluation reports. Report A and Report B describe different error and latency results, with limitations on robustness and deployment. Ask the example question below to see Gemini compare their evidence.")
+    for path in sorted((ROOT / "samples").glob("*.md")):
+        with st.expander(path.name):
+            st.text(path.read_text(encoding="utf-8"))
+else:
+    uploads = st.file_uploader("Upload 1–8 documents", type=["pdf", "txt", "md"], accept_multiple_files=True,
+                               key=f"uploads_{st.session_state.get('upload_epoch', 0)}", on_change=discard_review)
+    st.caption("Readable PDFs, TXT or MD · Up to 8 files, 20 MB each. Scanned PDFs need OCR first. Selecting a file uploads it to the hosting server immediately.")
+    if uploads:
+        st.caption(f"{len(uploads)} document(s) selected")
+
+st.subheader("2. Ask a question")
+st.session_state.setdefault("review_question", DEMO_QUESTION if use_samples else "")
+question = st.text_area("What would you like to find out?",
+                        placeholder="Example: What evidence supports the main conclusion, and what limitations are reported?",
+                        max_chars=2000, height=110, key="review_question", on_change=discard_review)
+if use_samples and not question:
+    st.caption("Example question: " + DEMO_QUESTION)
+if mode == "Gemini API":
+    cloud_allowed = st.checkbox("I agree to send my question, document metadata and retrieved text to Google Gemini.", key="gemini_consent")
+ready = bool(question.strip()) and bool(use_samples or uploads) and (
+    bool(key) and cloud_allowed if mode == "Gemini API" else bool(model.strip()))
+if not ready:
+    st.caption("Choose documents, enter a question, and complete the model settings and consent above to begin.")
+run_review = st.button("Start review with Gemini" if mode == "Gemini API" else "Start local review",
+                       type="primary", key="review_start", disabled=not ready, use_container_width=True)
+
 findings_column, evidence_column = st.columns([1.65, 1], gap="large")
 with findings_column:
-    with st.container(key="review_brief"):
-        st.subheader("Review brief")
-        if mode == "Offline walkthrough":
-            st.caption("SCRIPTED WALKTHROUGH · FICTIONAL REPORTS · NO MODEL CALLS")
-            question = DEMO_QUESTION
-            st.write(question)
-        else:
-            question = st.text_area("What would you like to investigate?", value=DEMO_QUESTION,
-                                    max_chars=2000, height=130)
-        run_review = st.button("Review documents", type="primary", key="review_start", use_container_width=True)
     if run_review:
         st.session_state.pop("review_result", None)
         st.session_state.pop("inspected_passage", None)
@@ -133,7 +150,7 @@ with findings_column:
             if len(uploads) > 8:
                 raise ValueError("Supply at most eight documents.")
             with tempfile.TemporaryDirectory(prefix="document-review-") as temporary:
-                if mode == "Offline walkthrough" or use_samples:
+                if use_samples:
                     paths = sorted((ROOT / "samples").glob("*.md"))
                 else:
                     paths = []
@@ -146,8 +163,7 @@ with findings_column:
                         path.write_bytes(upload.getvalue())
                         paths.append(path)
                 corpus = Corpus.from_paths(paths)
-                provider = Walkthrough() if mode == "Offline walkthrough" else (
-                    Gemini(key, model) if mode == "Gemini API" else Ollama(model))
+                provider = Gemini(key, model) if mode == "Gemini API" else Ollama(model)
                 if mode == "Gemini API" and shared_key:
                     provider = LimitedProvider(provider, shared_limiter(), st.session_state)
                 with st.spinner("Investigating the documents and preparing findings…"):
@@ -157,7 +173,7 @@ with findings_column:
         except (ValueError, OSError, UnicodeError) as error:
             st.error(str(error))
 
-    st.markdown("## Findings")
+    st.markdown("## 3. Review the findings")
     result = st.session_state.get("review_result")
     citations = {}
     if result:
@@ -213,5 +229,14 @@ if result:
     with st.expander("Review activity", expanded=False):
         st.caption(f"Stopped: {result['stop_reason']} · {result.get('decision_steps', len(result['trace']))} decision steps")
         st.json(result["trace"])
-    st.download_button("Export review", json.dumps(result, ensure_ascii=False, indent=2),
+    st.caption("Check each cited passage before relying on a finding. The download contains source excerpts.")
+    st.download_button("Download review and source excerpts", json.dumps(result, ensure_ascii=False, indent=2),
                        "document-review.json", "application/json")
+
+with st.expander("Where does my document go?"):
+    st.write("Uploads are processed on the computer running this app. On the public preview, that is the hosting server. Temporary working files are removed when processing ends; uploads and review excerpts can remain in session memory.")
+    st.write("Gemini receives your question, filenames, document identifiers and the passages retrieved during review. Google’s data-use and retention terms depend on its service and billing setup; the app cannot verify those settings. Disabling stored API interactions does not guarantee zero provider retention.")
+    st.markdown("[Google API data-use terms](https://ai.google.dev/gemini-api/terms) · [Google retention guidance](https://ai.google.dev/gemini-api/docs/zdr)")
+    st.caption("Clear documents and review removes the app’s current upload selection and review state. It cannot erase copies already sent to a provider or exported to a file, or guarantee secure erasure of server memory/disk. Exported reviews contain document excerpts.")
+
+st.button("Clear documents and review", key="clear_review", on_click=clear_workspace)
